@@ -4,7 +4,7 @@ import { retrieveRelevantChunks } from "./retrieval.service";
 
 import { buildFinancialPrompt } from "../../services/prompt.service";
 
-import { generateLLMResponse } from "../llm/llm.service";
+import { streamLLMResponse } from "../llm/llm.service";
 
 import { getRecentMessages, storeMessage } from "../memory/memory.service";
 
@@ -33,27 +33,42 @@ export const financialChatController = async (req: Request, res: Response) => {
 
     const prompt = buildFinancialPrompt(context, rewrittenQuery);
 
-    const answer = await generateLLMResponse(prompt);
+    const stream = await streamLLMResponse(prompt);
+
+    res.setHeader("Content-Type", "text/event-stream");
+
+    res.setHeader("Cache-Control", "no-cache");
+
+    res.setHeader("Connection", "keep-alive");
+
+    let fullResponse = "";
+
+    for await (const chunk of stream) {
+      const token = chunk.choices?.[0]?.delta?.content || "";
+
+      fullResponse += token;
+
+      res.write(
+        `data: ${JSON.stringify({
+          token,
+        })}\n\n`,
+      );
+    }
 
     await storeMessage(chatId, "user", query);
 
-    await storeMessage(chatId, "assistant", answer || "");
+    await storeMessage(chatId, "assistant", fullResponse);
 
-    return res.json({
-      success: true,
+    res.write(
+      `data: ${JSON.stringify({
+        done: true,
+      })}\n\n`,
+    );
 
-      rewrittenQuery,
-
-      answer,
-
-      sources: retrievedChunks,
-    });
+    res.end();
   } catch (error) {
     console.error(error);
 
-    return res.status(500).json({
-      success: false,
-      error: "Conversational chat failed",
-    });
+    res.end();
   }
 };
