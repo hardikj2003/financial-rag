@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { useChatStore } from "@/store/chat.store";
+import { useChatStore } from "@/store/chat/chat.store";
 
 import MessageBubble from "./MessageBubble";
 import TypingLoader from "./TypingLoader";
@@ -30,6 +30,7 @@ export default function MessageList({ loading }: Props) {
             key={index}
             role={message.role}
             content={message.content}
+            sources={message.sources}
           />
         ))}
 

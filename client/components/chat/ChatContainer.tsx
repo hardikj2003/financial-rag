@@ -1,34 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import Sidebar from "./Sidebar";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
-
-import { createChat, streamMessage } from "@/services/chat.service";
-
-import { useChatStore } from "@/store/chat.store";
+import { streamMessage } from "@/services/chat/chat.service";
+import { useChatStore } from "@/store/chat/chat.store";
 
 export default function ChatContainer() {
-  const { messages, addMessage, updateLastMessage } = useChatStore();
-
-  const [chatId, setChatId] = useState("");
+  const {
+    activeChatId,
+    setActiveChat,
+    addMessage,
+    updateLastMessage,
+    updateLastMessageSources,
+  } = useChatStore();
 
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const initializeChat = async () => {
-      const response = await createChat();
-
-      setChatId(response.chat.id);
-    };
-
-    initializeChat();
-  }, []);
-
   const handleSendMessage = async (query: string) => {
-    if (!query.trim()) return;
+    if (!query.trim() || !activeChatId) return;
 
     addMessage({
       role: "user",
@@ -43,9 +34,18 @@ export default function ChatContainer() {
     setLoading(true);
 
     try {
-      await streamMessage(query, chatId, (token) => {
-        updateLastMessage(token);
-      });
+      await streamMessage(
+        query,
+        activeChatId,
+
+        (token) => {
+          updateLastMessage(token);
+        },
+
+        (sources) => {
+          updateLastMessageSources(sources);
+        },
+      );
     } catch (error) {
       console.error(error);
     } finally {
@@ -54,14 +54,12 @@ export default function ChatContainer() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen overflow-hidden bg-slate-100">
       <Sidebar />
-
-      <div className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col">
         <MessageList loading={loading} />
-
         <ChatInput onSend={handleSendMessage} disabled={loading} />
-      </div>
+      </main>
     </div>
   );
 }

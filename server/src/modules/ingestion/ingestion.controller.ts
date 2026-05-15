@@ -16,7 +16,7 @@ export const uploadPDFController = async (
       });
     }
 
-    const result = await ingestPDF(file.path);
+    const result = await ingestPDF(file);
 
     return res.json(result);
   } catch (error) {
