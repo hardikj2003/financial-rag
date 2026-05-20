@@ -201,8 +201,6 @@ export default function MessageBubble({ role, content, sources }: Props) {
                   >
                     {normalizedContent}
                   </ReactMarkdown>
-
-
                 </div>
 
                 {/* Assistant Actions */}

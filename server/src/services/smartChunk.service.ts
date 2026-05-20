@@ -131,10 +131,5 @@ export const createSmartChunks = (text: string): SmartChunk[] => {
     });
   }
 
-  console.log("SMART CHUNKS CREATED:", {
-    totalChunks: chunks.length,
-    sample: chunks[0],
-  });
-
   return chunks;
 };

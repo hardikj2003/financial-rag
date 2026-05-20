@@ -1,48 +1,38 @@
 import { RetrievedChunk } from "../types/retrieval.types";
 
-const HIGH_VALUE_SECTIONS = [
-  "management discussion",
-  "results of operations",
-  "operational performance",
-  "capital expenditure",
-  "financial highlights",
-  "business overview",
-  "segment performance",
-  "liquidity",
-  "cash flow",
-];
+import { queryMetadataRouter } from "./queryMetadataRouter";
 
-const LOW_VALUE_SECTIONS = [
-  "notes",
-  "accounting",
-  "financial statements",
-  "auditor",
-  "disclosures",
-];
+export const applyMetadataBoost = (
+  query: string,
+  chunks: RetrievedChunk[],
+): RetrievedChunk[] => {
+  const { preferredSections } = queryMetadataRouter(query);
 
-export const applyMetadataBoost = (chunks: RetrievedChunk[]) => {
   return chunks.map((chunk) => {
+    let boostedScore = chunk.score;
     const section = (chunk.sectionTitle || "").toLowerCase();
 
-    let boost = 0;
-
-    // High-value financial sections
-    for (const highValue of HIGH_VALUE_SECTIONS) {
-      if (section.includes(highValue)) {
-        boost += 8;
+    // Section Matching Boost
+    for (const preferred of preferredSections) {
+      if (section.includes(preferred)) {
+        boostedScore += 25;
       }
     }
-
-    // Penalize noisy sections
-    for (const lowValue of LOW_VALUE_SECTIONS) {
-      if (section.includes(lowValue)) {
-        boost -= 5;
-      }
+    // Financial Priority Boost
+    if (
+      [
+        "management discussion",
+        "financial highlights",
+        "results of operations",
+      ].includes(section)
+    ) {
+      boostedScore += 8;
     }
+
 
     return {
       ...chunk,
-      score: chunk.score + boost,
+      score: boostedScore,
     };
   });
 };

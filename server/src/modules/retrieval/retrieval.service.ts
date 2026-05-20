@@ -1,15 +1,10 @@
 import { hybridSearch } from "./search/hybrid.search";
+import { RetrievalMemory } from "./types/retrieval.types";
 
-export const retrieveRelevantChunks = async (query: string) => {
-  const results = await hybridSearch(query);
-
-  console.log(
-    "FINAL METADATA-RERANKED RESULTS:",
-    results.map((r) => ({
-      score: r.score,
-      section: r.sectionTitle,
-      preview: r.text.slice(0, 80),
-    })),
-  );
+export const retrieveRelevantChunks = async (
+  query: string,
+  memory?: RetrievalMemory,
+) => {
+  const results = await hybridSearch(query, memory);
   return results;
 };

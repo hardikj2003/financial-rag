@@ -11,14 +11,15 @@ export const vectorSearch = async (
     limit: 6,
   });
 
-  return results.map((result: any) => ({
-    id: result.id,
-    text: result.payload?.text || "",
-    documentName: result.payload?.documentName || "Financial Report",
-    chunkIndex: result.payload?.chunkIndex || 0,
-    sectionTitle: result.payload?.sectionTitle || "general",
-    score: result.score || 0,
-    metadata: result.payload || {},
-    
+  return results.map((point) => ({
+    id: String(point.id),
+    text: String(point.payload?.text || ""),
+    documentName: String(point.payload?.documentName || "Financial Report"),
+    chunkIndex: Number(point.payload?.chunkIndex || 0),
+    sectionTitle: String(point.payload?.sectionTitle || "general"),
+    parentId: String(point.payload?.parentId || ""),
+    parentText: String(point.payload?.parentText || ""),
+    score: Number(point.score || 0),
+    metadata: (point.payload as Record<string, unknown>) || {},
   }));
 };

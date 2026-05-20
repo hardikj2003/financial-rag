@@ -14,3 +14,9 @@ export interface ParentSection {
   parentId: string;
   parentText: string;
 }
+
+export interface RetrievalMemory {
+  recentTopics: string[];
+  recentDocuments: string[];
+  recentSections: string[];
+}

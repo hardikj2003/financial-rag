@@ -8,6 +8,8 @@ import {
   updateChatTitle,
 } from "../memory/memory.service";
 import { rewriteQuery } from "../memory/rewrite.service";
+import { formatSourcesForPrompt } from "./sourceFormatter.service";
+import { extractConversationMemory } from "./conversationMemory.service";
 
 export const financialChatController = async (req: Request, res: Response) => {
   try {
@@ -21,10 +23,14 @@ export const financialChatController = async (req: Request, res: Response) => {
     }
 
     const history = await getRecentMessages(chatId);
+    const retrievalMemory = extractConversationMemory(history);
     const rewrittenQuery = await rewriteQuery(query, history);
-    const retrievedChunks = await retrieveRelevantChunks(rewrittenQuery);
+    const retrievedChunks = await retrieveRelevantChunks(
+      rewrittenQuery,
+      retrievalMemory,
+    );
 
-    const context = retrievedChunks.map((chunk) => chunk.text).join("\n\n");
+    const context = formatSourcesForPrompt(retrievedChunks);
 
     const prompt = buildFinancialPrompt(context, rewrittenQuery);
     const stream = await streamLLMResponse(prompt);
