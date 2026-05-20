@@ -16,7 +16,9 @@ export const vectorSearch = async (
     text: result.payload?.text || "",
     documentName: result.payload?.documentName || "Financial Report",
     chunkIndex: result.payload?.chunkIndex || 0,
+    sectionTitle: result.payload?.sectionTitle || "general",
     score: result.score || 0,
     metadata: result.payload || {},
+    
   }));
 };

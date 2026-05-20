@@ -55,7 +55,9 @@ export const streamMessage = async (
         }
 
         if (typeof parsed.token === "string") {
-          onToken(parsed.token);
+          if (parsed.token) {
+            onToken(parsed.token);
+          }
         }
       } catch (err) {
         // Catch parsing errors quietly for partial trailing lines

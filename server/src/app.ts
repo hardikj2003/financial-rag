@@ -5,6 +5,7 @@ import qdrantRoutes from "./modules/qdrant/qdrant.routes";
 import ingestionRoutes from "./modules/ingestion/ingestion.routes";
 import retrievalRoutes from "./modules/retrieval/retrieval.routes";
 import memoryRoutes from "./modules/memory/memory.routes";
+import documentsRoutes from "./modules/documents/documents.routes";
 
 const app = express();
 
@@ -12,7 +13,7 @@ app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 
@@ -24,5 +25,6 @@ app.use("/api/qdrant", qdrantRoutes);
 app.use("/api/ingestion", ingestionRoutes);
 app.use("/api/retrieval", retrievalRoutes);
 app.use("/api/memory", memoryRoutes);
+app.use("/api/documents", documentsRoutes);
 
 export default app;

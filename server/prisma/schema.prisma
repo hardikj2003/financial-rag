@@ -21,3 +21,10 @@ model Message {
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
+
+model Document {
+  id           String   @id @default(uuid())
+  fileName     String
+  chunksStored Int
+  createdAt    DateTime @default(now())
+}

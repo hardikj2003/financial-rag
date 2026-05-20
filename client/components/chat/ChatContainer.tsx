@@ -26,22 +26,26 @@ export default function ChatContainer() {
       content: query,
     });
 
-    addMessage({
-      role: "assistant",
-      content: "",
-    });
-
     setLoading(true);
 
     try {
+      let started = false;
       await streamMessage(
         query,
         activeChatId,
 
         (token) => {
-          updateLastMessage(token);
-        },
+          if (!started) {
+            addMessage({
+              role: "assistant",
+              content: token,
+            });
 
+            started = true;
+          } else {
+            updateLastMessage(token);
+          }
+        },
         (sources) => {
           updateLastMessageSources(sources);
         },
@@ -54,7 +58,7 @@ export default function ChatContainer() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
+    <div className="flex h-screen overflow-hidden bg-white">
       <Sidebar />
       <main className="flex flex-1 flex-col">
         <MessageList loading={loading} />

@@ -4,5 +4,13 @@ export interface RetrievedChunk {
   documentName: string;
   chunkIndex: number;
   score: number;
+  sectionTitle?: string;
   metadata?: Record<string, any>;
+  parentId?: string;
+  parentText?: string;
+}
+
+export interface ParentSection {
+  parentId: string;
+  parentText: string;
 }

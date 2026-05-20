@@ -35,6 +35,7 @@ export const keywordSearch = async (
         chunkIndex: point.payload?.chunkIndex || 0,
         score: keywordScore,
         metadata: point.payload || {},
+        sectionTitle: point.payload?.sectionTitle || "general",
       };
     })
     .filter((chunk) => chunk.score > 0)

@@ -2,6 +2,9 @@ import { vectorSearch } from "./vector.search";
 import { keywordSearch } from "./keyword.search";
 import { deduplicateChunks } from "../utils/deduplicate";
 import { RetrievedChunk } from "../types/retrieval.types";
+import { rerankChunks } from "./reranker";
+import { applyMetadataBoost } from "../utils/metadataBoost";
+import { expandToParentContexts } from "../../../services/parentExpansion.service";
 
 export const hybridSearch = async (
   query: string,
@@ -26,5 +29,10 @@ export const hybridSearch = async (
   const merged = [...normalizedVector, ...normalizedKeyword];
   const deduplicated = deduplicateChunks(merged);
 
-  return deduplicated.sort((a, b) => b.score - a.score).slice(0, 6);
+  const metadataBoosted = applyMetadataBoost(deduplicated);
+
+  const reranked = rerankChunks(query, metadataBoosted);
+  const expanded = expandToParentContexts(reranked);
+
+  return expanded.slice(0, 4);
 };

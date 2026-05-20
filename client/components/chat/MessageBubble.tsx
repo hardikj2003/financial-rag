@@ -1,135 +1,281 @@
 "use client";
 
-import { useState } from "react"; // Added useState
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, User, ChevronDown } from "lucide-react"; // Added ChevronDown
+import {
+  Bot,
+  User,
+  Copy,
+  RotateCcw,
+  Check,
+  Pencil,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import SourceCard from "./SourceCard";
 import { Source } from "@/store/chat/chat.store";
 
 interface Props {
   role: "user" | "assistant";
-  content: unknown;
+  content: any;
   sources?: Source[];
 }
 
 export default function MessageBubble({ role, content, sources }: Props) {
-  const [isExpanded, setIsExpanded] = useState(false); // State for dropdown
   const isUser = role === "user";
+  const [copied, setCopied] = useState(false);
+  const [showSources, setShowSources] = useState(false);
 
   const normalizedContent =
-    typeof content === "string"
-      ? content
-      : content && typeof content === "object"
-        ? JSON.stringify(content, null, 2)
-        : "";
+    typeof content === "string" ? content : JSON.stringify(content);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(normalizedContent);
+
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <div
-      className={`flex w-full items-start gap-4 animate-message-pop ${
-        isUser ? "flex-row-reverse" : ""
+      className={`group flex w-full animate-message-pop ${
+        isUser ? "justify-end" : "justify-start"
       }`}
     >
-      {/* Avatar */}
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 ${
-          isUser
-            ? "border-blue-600 bg-blue-600 text-white"
-            : "border-slate-200 bg-white text-slate-700"
+        className={`flex max-w-[88%] gap-4 ${
+          isUser ? "flex-row-reverse" : "flex-row"
         }`}
       >
-        {isUser ? <User size={15} /> : <Bot size={15} />}
-      </div>
-
-      {/* Message Container */}
-      <div
-        className={`max-w-[82%] overflow-hidden rounded-3xl px-5 py-4 shadow-sm transition-all duration-300 ${
-          isUser
-            ? "rounded-tr-md bg-blue-600 text-white"
-            : "rounded-tl-md border border-slate-200 bg-white text-slate-800"
-        }`}
-      >
-        {/* Markdown Content */}
+        {/* Avatar */}
         <div
-          className={`prose prose-sm max-w-none ${
-            isUser ? "prose-invert" : "prose-slate"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 ${
+            isUser
+              ? "border-slate-900 bg-slate-900 text-white"
+              : "border-slate-200 bg-white text-slate-700"
           }`}
         >
-          <ReactMarkdown
-            components={{
-              p: ({ node, ...props }) => (
-                <p className="mb-3 leading-7 last:mb-0" {...props} />
-              ),
-              strong: ({ node, ...props }) => (
-                <strong
-                  className={`font-semibold ${isUser ? "text-white" : "text-slate-900"}`}
-                  {...props}
-                />
-              ),
-              ul: ({ node, ...props }) => (
-                <ul className="my-3 list-disc space-y-1 pl-5" {...props} />
-              ),
-              ol: ({ node, ...props }) => (
-                <ol className="my-3 list-decimal space-y-1 pl-5" {...props} />
-              ),
-              code: ({ node, ...props }) => (
-                <code
-                  className={`rounded-md px-1.5 py-0.5 text-[13px] ${
-                    isUser
-                      ? "bg-white/10 text-white"
-                      : "bg-slate-100 text-slate-800"
-                  }`}
-                  {...props}
-                />
-              ),
-            }}
-          >
-            {normalizedContent}
-          </ReactMarkdown>
+          {isUser ? <User size={16} /> : <Bot size={16} />}
         </div>
 
-        {/* Interactive Sources Dropdown */}
-        {!isUser && Array.isArray(sources) && sources.length > 0 && (
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex w-full items-center justify-between group"
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className={`h-2 w-2 rounded-full transition-colors duration-300 ${isExpanded ? "bg-emerald-500" : "bg-slate-300"}`}
-                />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-700 transition-colors">
-                  Retrieved Sources ({sources.length})
-                </span>
-              </div>
+        {/* Main Content */}
+        <div className="flex flex-1 flex-col gap-4">
+          {/* Bubble */}
+          <div
+            className={`relative overflow-hidden rounded-3xl border px-5 py-4 shadow-sm transition-all duration-300 ${
+              isUser
+                ? "rounded-tr-md border-slate-900 bg-slate-900 text-white"
+                : "rounded-tl-md border-slate-200 bg-white text-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            }`}
+          >
+            {/* User Message */}
+            {isUser ? (
+              <>
+                <p className="whitespace-pre-wrap text-sm leading-7">
+                  {normalizedContent}
+                </p>
 
-              {/* Animated Arrow Icon */}
-              <ChevronDown
-                size={16}
-                className={`text-slate-400 transition-transform duration-300 ease-in-out ${
-                  isExpanded ? "rotate-180 text-slate-700" : "rotate-0"
+                {/* User Actions */}
+                <div className="mt-3 flex items-center justify-end gap-2 opacity-100">
+                  <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                    <Pencil size={12} />
+                    Edit
+                  </button>
+
+                  <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                    <RotateCcw size={12} />
+                    Retry
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Assistant Markdown */}
+                <div className="prose prose-slate max-w-none text-[15px] leading-8">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ ...props }) => (
+                        <h1
+                          className="mb-4 mt-6 text-2xl font-semibold tracking-tight text-slate-900"
+                          {...props}
+                        />
+                      ),
+
+                      h2: ({ ...props }) => (
+                        <h2
+                          className="mb-3 mt-6 text-xl font-semibold tracking-tight text-slate-900"
+                          {...props}
+                        />
+                      ),
+
+                      h3: ({ ...props }) => (
+                        <h3
+                          className="mb-2 mt-5 text-lg font-semibold tracking-tight text-slate-900"
+                          {...props}
+                        />
+                      ),
+
+                      p: ({ ...props }) => (
+                        <p
+                          className="mb-4 leading-8 text-slate-700"
+                          {...props}
+                        />
+                      ),
+
+                      ul: ({ ...props }) => (
+                        <ul
+                          className="mb-4 ml-4 list-disc space-y-2 text-slate-700"
+                          {...props}
+                        />
+                      ),
+
+                      ol: ({ ...props }) => (
+                        <ol
+                          className="mb-4 ml-4 list-decimal space-y-2 text-slate-700"
+                          {...props}
+                        />
+                      ),
+
+                      strong: ({ ...props }) => (
+                        <strong
+                          className="font-semibold text-slate-900"
+                          {...props}
+                        />
+                      ),
+
+                      code: ({ ...props }) => (
+                        <code
+                          className="rounded-lg bg-slate-100 px-1.5 py-1 text-[13px]"
+                          {...props}
+                        />
+                      ),
+
+                      pre: ({ ...props }) => (
+                        <pre
+                          className="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"
+                          {...props}
+                        />
+                      ),
+
+                      blockquote: ({ ...props }) => (
+                        <blockquote
+                          className="border-l-4 border-slate-300 pl-4 italic text-slate-500"
+                          {...props}
+                        />
+                      ),
+
+                      table: ({ ...props }) => (
+                        <div className="my-6 overflow-hidden rounded-2xl border border-slate-200">
+                          <table
+                            className="w-full border-collapse text-sm"
+                            {...props}
+                          />
+                        </div>
+                      ),
+
+                      thead: ({ ...props }) => (
+                        <thead className="bg-slate-50" {...props} />
+                      ),
+
+                      th: ({ ...props }) => (
+                        <th
+                          className="border-b border-slate-200 px-4 py-3 text-left font-semibold text-slate-700"
+                          {...props}
+                        />
+                      ),
+
+                      td: ({ ...props }) => (
+                        <td
+                          className="border-b border-slate-100 px-4 py-3 text-slate-600"
+                          {...props}
+                        />
+                      ),
+                    }}
+                  >
+                    {normalizedContent}
+                  </ReactMarkdown>
+
+
+                </div>
+
+                {/* Assistant Actions */}
+                <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-4">
+                  <button
+                    onClick={copyToClipboard}
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={14} />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        Copy
+                      </>
+                    )}
+                  </button>
+
+                  <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800">
+                    <RotateCcw size={14} />
+                    Regenerate
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {/* Sources */}
+          {!isUser && Array.isArray(sources) && sources.length > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-50">
+              {/* Header */}
+              <button
+                onClick={() => setShowSources(!showSources)}
+                className="flex w-full items-center justify-between px-4 py-3 transition-colors duration-300 hover:bg-stone-100"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-orange-500" />
+
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-stone-500">
+                    Grounded Sources
+                  </p>
+
+                  <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                    {sources.length}
+                  </span>
+                </div>
+
+                {showSources ? (
+                  <ChevronDown size={16} className="text-stone-500" />
+                ) : (
+                  <ChevronRight size={16} className="text-stone-500" />
+                )}
+              </button>
+
+              {/* Expandable Content */}
+              <div
+                className={`grid transition-all duration-300 ${
+                  showSources ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                 }`}
-              />
-            </button>
-
-            {/* Collapsible Content */}
-            <div
-              className={`grid transition-all duration-300 ease-in-out ${
-                isExpanded
-                  ? "grid-rows-[1fr] opacity-100 mt-4"
-                  : "grid-rows-[0fr] opacity-0"
-              }`}
-            >
-              <div className="overflow-hidden">
-                <div className="flex flex-col gap-3 pb-2">
-                  {sources.map((item, index) => (
-                    <SourceCard key={`src-${index}`} source={item} />
-                  ))}
+              >
+                <div className="overflow-hidden">
+                  <div className="grid gap-3 border-t border-stone-200 p-4">
+                    {sources.map((source, index) => (
+                      <SourceCard key={index} source={source} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
