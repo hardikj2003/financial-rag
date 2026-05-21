@@ -7,12 +7,12 @@ datasource db {
 }
 
 model Chat {
-  id String @id @default(uuid())
-  title String @default("New Financial Chat")
-  createdAt DateTime @default(now())
-  userId String?
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
+  id        String    @id @default(uuid())
+  title     String    @default("New Financial Chat")
+  createdAt DateTime  @default(now())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
 }
 
 model Message {
@@ -42,4 +42,14 @@ model User {
   role      Role     @default(USER)
   createdAt DateTime @default(now())
   chats     Chat[]
+}
+
+model QueryLog {
+  id String @id @default(uuid())
+  originalQuery  String
+  rewrittenQuery String?
+  retrievalTimeMs  Int?
+  generationTimeMs Int?
+  totalSources Int?
+  createdAt DateTime @default(now())
 }
