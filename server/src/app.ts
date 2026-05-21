@@ -6,6 +6,8 @@ import ingestionRoutes from "./modules/ingestion/ingestion.routes";
 import retrievalRoutes from "./modules/retrieval/retrieval.routes";
 import memoryRoutes from "./modules/memory/memory.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
+import { clerkMiddleware } from "@clerk/express";
+import adminRoutes from "./modules/admin/admin.routes";
 
 const app = express();
 
@@ -16,6 +18,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(clerkMiddleware());
 
 app.get("/", (req, res) => {
   res.send("Financial RAG API Running...");
@@ -26,5 +29,6 @@ app.use("/api/ingestion", ingestionRoutes);
 app.use("/api/retrieval", retrievalRoutes);
 app.use("/api/memory", memoryRoutes);
 app.use("/api/documents", documentsRoutes);
+app.use("/api/admin", adminRoutes);
 
 export default app;

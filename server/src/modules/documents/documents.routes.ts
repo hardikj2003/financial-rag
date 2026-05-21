@@ -1,11 +1,11 @@
 import express from "express";
 
 import { getDocumentsController } from "./documents.controller";
-import { deleteDocumentController } from "./documents.controller";
+import { protectRoute } from "../../middleware/helper.middleware";
+import { requireAdmin } from "../auth/auth.service";
 
 const router = express.Router();
 
-router.get("/", getDocumentsController);
-router.delete("/:id", deleteDocumentController);
+router.get("/", protectRoute, requireAdmin, getDocumentsController);
 
 export default router;

@@ -1,33 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+
 import DocumentCard from "./DocumentCard";
-import { UploadedDocument } from "@/types/upload";
-import api from "@/services/api/api";
 import Skeleton from "../ui/Skeleton";
+
+import { UploadedDocument } from "@/types/upload";
+import { getDocuments } from "@/services/document/document.service";
 
 interface Props {
   refreshKey?: number;
 }
+
 export default function DocumentList({ refreshKey }: Props) {
+  const { getToken } = useAuth();
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setLoading(true);
+        const token = await getToken();
+        if (!token) {
+          console.error("No auth token found");
+          return;
+        }
+        const response = await getDocuments(token);
+        setDocuments(response.documents || []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchDocuments();
-  }, [refreshKey]);
-
-  const fetchDocuments = async () => {
-    try {
-      const response = await api.get("/documents");
-
-      setDocuments(response.data?.documents || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [refreshKey, getToken]);
 
   if (loading) {
     return (
@@ -42,9 +51,7 @@ export default function DocumentList({ refreshKey }: Props) {
 
               <div className="flex flex-1 flex-col gap-3">
                 <Skeleton className="h-4 w-2/3" />
-
                 <Skeleton className="h-3 w-full" />
-
                 <Skeleton className="h-3 w-1/2" />
               </div>
             </div>
@@ -54,7 +61,6 @@ export default function DocumentList({ refreshKey }: Props) {
     );
   }
 
-  // Empty State
   if (documents.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-5 py-12 text-center">
@@ -71,7 +77,7 @@ export default function DocumentList({ refreshKey }: Props) {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-4">
       {documents.map((document) => (
         <DocumentCard key={document.id} document={document} />
       ))}

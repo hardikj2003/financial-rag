@@ -1,16 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+
 import Sidebar from "./Sidebar";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
+
 import { streamMessage } from "@/services/chat/chat.service";
 import { useChatStore } from "@/store/chat/chat.store";
+import { Source } from "@/store/chat/chat.store";
 
 export default function ChatContainer() {
+  const { getToken } = useAuth();
+
   const {
     activeChatId,
-    setActiveChat,
     addMessage,
     updateLastMessage,
     updateLastMessageSources,
@@ -19,34 +24,38 @@ export default function ChatContainer() {
   const [loading, setLoading] = useState(false);
 
   const handleSendMessage = async (query: string) => {
-    if (!query.trim() || !activeChatId) return;
-
+    if (!query.trim() || !activeChatId) {
+      return;
+    }
+    const token = await getToken();
+    if (!token) {
+      console.error("No authentication token found");
+      return;
+    }
     addMessage({
       role: "user",
       content: query,
     });
-
     setLoading(true);
-
     try {
       let started = false;
       await streamMessage(
+        token,
         query,
         activeChatId,
-
-        (token) => {
+        (streamToken: string) => {
           if (!started) {
             addMessage({
               role: "assistant",
-              content: token,
+              content: streamToken,
             });
 
             started = true;
           } else {
-            updateLastMessage(token);
+            updateLastMessage(streamToken);
           }
         },
-        (sources) => {
+        (sources: Source[]) => {
           updateLastMessageSources(sources);
         },
       );

@@ -1,9 +1,13 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import ChatContainer from "@/components/chat/ChatContainer";
 
-export default function Home() {
-  return (
-    <main className="h-screen w-screen overflow-hidden bg-slate-950 text-white">
-      <ChatContainer />
-    </main>
-  );
+export default async function Home() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  return <ChatContainer />;
 }

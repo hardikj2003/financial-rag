@@ -12,6 +12,12 @@ export const ingestPDF = async (file: Express.Multer.File) => {
   const extractedText = await extractTextFromPDF(file.path);
 
   const chunks = createSmartChunks(extractedText);
+  const document = await prisma.document.create({
+    data: {
+      fileName: file.originalname,
+      chunksStored: chunks.length,
+    },
+  });
 
   const points = [];
 
@@ -24,6 +30,7 @@ export const ingestPDF = async (file: Express.Multer.File) => {
       id: uuidv4(),
       vector: embedding,
       payload: {
+        documentId: document.id,
         text: chunk.text,
         documentName: file.originalname,
         chunkIndex: chunk.metadata.chunkIndex,
@@ -39,12 +46,7 @@ export const ingestPDF = async (file: Express.Multer.File) => {
     points,
   });
 
-  await prisma.document.create({
-    data: {
-      fileName: file.originalname,
-      chunksStored: chunks.length,
-    },
-  });
+  
 
   fs.unlinkSync(file.path);
 

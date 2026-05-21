@@ -1,10 +1,11 @@
 import express from "express";
 import qdrantClient from "./qdrant.client";
 import { createFinancialCollection } from "./qdrant.service";
+import { protectRoute } from "../../middleware/helper.middleware";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", protectRoute, async (req, res) => {
   try {
     const collections = await qdrantClient.getCollections();
 

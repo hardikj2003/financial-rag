@@ -1,23 +1,31 @@
 import prisma from "../../config/prisma";
 
-export const createChat = async () => {
+export const createChat = async (userId: string) => {
   return prisma.chat.create({
-    data: {},
+    data: {
+      userId,
+    },
   });
 };
 
-export const getAllChats = async () => {
+export const getAllChats = async (userId: string) => {
   return prisma.chat.findMany({
+    where: {
+      userId,
+    },
     orderBy: {
       createdAt: "desc",
     },
   });
 };
 
-export const getChatMessages = async (chatId: string) => {
+export const getChatMessages = async (chatId: string, userId: string) => {
   return prisma.message.findMany({
     where: {
       chatId,
+      chat: {
+        userId,
+      },
     },
     orderBy: {
       createdAt: "asc",

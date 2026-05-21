@@ -13,6 +13,7 @@ export const vectorSearch = async (
 
   return results.map((point) => ({
     id: String(point.id),
+    documentId: String(point.payload?.documentId || ""),
     text: String(point.payload?.text || ""),
     documentName: String(point.payload?.documentName || "Financial Report"),
     chunkIndex: Number(point.payload?.chunkIndex || 0),
