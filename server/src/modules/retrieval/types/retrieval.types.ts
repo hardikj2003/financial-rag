@@ -8,6 +8,7 @@ export interface RetrievedChunk {
   metadata?: Record<string, any>;
   parentId?: string;
   parentText?: string;
+  companyName?: string;
 }
 
 export interface ParentSection {
@@ -19,4 +20,12 @@ export interface RetrievalMemory {
   recentTopics: string[];
   recentDocuments: string[];
   recentSections: string[];
+  currentCompany?: string;
+}
+export interface RetrievedTable {
+  id: string;
+  tableName?: string;
+  rows: any;
+  score: number;
+  documentId: string;
 }

@@ -55,8 +55,10 @@ export default function ChatContainer() {
             updateLastMessage(streamToken);
           }
         },
-        (sources: Source[]) => {
+        (sources, verified) => {
           updateLastMessageSources(sources);
+
+          console.log("VERIFIED:", verified);
         },
       );
     } catch (error) {

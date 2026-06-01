@@ -100,6 +100,7 @@ export const keywordSearch = async (
         chunkIndex: point.payload?.chunkIndex || 0,
         score: keywordScore,
         metadata: point.payload || {},
+        companyName: point.payload?.companyName,
         sectionTitle,
       };
     })

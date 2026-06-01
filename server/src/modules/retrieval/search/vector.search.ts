@@ -22,5 +22,6 @@ export const vectorSearch = async (
     parentText: String(point.payload?.parentText || ""),
     score: Number(point.score || 0),
     metadata: (point.payload as Record<string, unknown>) || {},
+    companyName: String(point.payload?.companyName || ""),
   }));
 };

@@ -9,6 +9,7 @@ import {
   Search,
   Shield,
   Terminal,
+  BookOpenText,
 } from "lucide-react";
 import Link from "next/link";
 import { UserButton, useAuth } from "@clerk/nextjs";
@@ -130,6 +131,16 @@ export default function Sidebar() {
 
         {/* Main Navigation Content */}
         <div className="flex flex-col px-4 py-4 overflow-hidden">
+          <Link
+            href="/docs"
+            className="mb-4 flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-xs font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-white"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-600 text-white">
+              <BookOpenText size={14} />
+            </span>
+            Interactive RAG Docs
+          </Link>
+
           <div className="mb-3 flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <MessageSquare size={13} className="text-orange-600" />

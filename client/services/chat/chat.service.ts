@@ -13,7 +13,7 @@ export const streamMessage = async (
   query: string,
   chatId: string,
   onToken: (token: string) => void,
-  onDone: (sources: any[]) => void,
+  onDone: (sources: any[], verified: boolean) => void,
 ) => {
   const response = await fetch("http://localhost:8000/api/retrieval/chat", {
     method: "POST",
@@ -57,7 +57,7 @@ export const streamMessage = async (
         const rawJson = trimmedLine.replace(/^data:\s*/, "");
         const parsed = JSON.parse(rawJson);
         if (parsed.done) {
-          onDone(parsed.sources || []);
+          onDone(parsed.sources || [], parsed.verified ?? false);
           return;
         }
         if (typeof parsed.token === "string") {

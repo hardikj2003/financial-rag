@@ -3,3 +3,10 @@ export interface ChatSession {
   title: string;
   createdAt: string;
 }
+
+export interface Source {
+  sourceId: number;
+  documentName?: string;
+  text: string;
+  sectionTitle?: string;
+}

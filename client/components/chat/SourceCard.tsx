@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 interface SourceItem {
+  sourceId: number;
   text: string;
   documentName: string;
   chunkIndex: number;
@@ -23,7 +24,8 @@ interface Props {
 }
 
 export default function SourceCard({ source }: Props) {
-  const { text, documentName, chunkIndex, score, sectionTitle } = source;
+  const { sourceId, text, documentName, chunkIndex, score, sectionTitle } =
+    source;
 
   const [expanded, setExpanded] = useState(false);
 
@@ -49,19 +51,22 @@ export default function SourceCard({ source }: Props) {
 
           {/* Metadata */}
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-slate-800">
-              {documentName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <div className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700">
+                Source {sourceId}
+              </div>
+
+              <h3 className="truncate text-sm font-semibold text-slate-800">
+                {documentName}
+              </h3>
+            </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {/* Section */}
               <div className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-700">
                 <Sparkles size={10} />
-
                 {sectionTitle || "General"}
               </div>
 
-              {/* Chunk */}
               <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-500">
                 <Layers3 size={10} />
                 Chunk #{chunkIndex}
@@ -110,7 +115,7 @@ export default function SourceCard({ source }: Props) {
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
         <div className="text-[11px] text-slate-400">
-          Grounded financial evidence
+          Citation: [Source {sourceId}]
         </div>
 
         <button className="flex items-center gap-1 text-xs font-medium text-slate-500 transition-all duration-300 hover:text-slate-800">

@@ -16,15 +16,12 @@ RULES
 -----------------------------------
 
 1. Preserve the original intent.
-
 2. Resolve references like:
 - "it"
 - "they"
 - "that company"
 - "their earnings"
-
 using conversation history.
-
 3. Preserve:
 - company names
 - stock tickers
@@ -32,27 +29,18 @@ using conversation history.
 - quarters
 - metrics
 - financial terminology
-
 4. Expand vague questions into searchable financial queries.
-
 5. Keep the rewritten query concise but information-rich.
-
 6. Do NOT answer the question.
-
 7. Output ONLY the rewritten query.
-
 -----------------------------------
 CONVERSATION HISTORY
 -----------------------------------
-
 ${formattedHistory}
-
 -----------------------------------
 LATEST USER QUERY
 -----------------------------------
-
 ${query}
-
 -----------------------------------
 REWRITTEN STANDALONE QUERY
 -----------------------------------

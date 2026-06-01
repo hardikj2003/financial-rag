@@ -3,21 +3,14 @@ import { RetrievedChunk } from "../modules/retrieval/types/retrieval.types";
 export const expandToParentContexts = (
   chunks: RetrievedChunk[],
 ): RetrievedChunk[] => {
-  const parentMap = new Map<string, RetrievedChunk>();
+  return chunks.map((chunk) => ({
+    ...chunk,
 
-  for (const chunk of chunks) {
-    const parentId = chunk.parentId;
+    text: chunk.parentText
+      ? `${chunk.text}
 
-    if (!parentId) continue;
-
-    if (!parentMap.has(parentId)) {
-      parentMap.set(parentId, {
-        ...chunk,
-
-        text: chunk.parentText || chunk.text,
-      });
-    }
-  }
-
-  return Array.from(parentMap.values());
+Parent Context:
+${chunk.parentText.slice(0, 400)}`
+      : chunk.text,
+  }));
 };

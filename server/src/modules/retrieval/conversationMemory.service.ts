@@ -1,5 +1,8 @@
 import { Message } from "@prisma/client";
 import { RetrievalMemory } from "./types/retrieval.types";
+import { detectCompany } from "./utils/companyDetector";
+
+let currentCompany: string | undefined;
 
 export const extractConversationMemory = (
   messages: Message[],
@@ -9,6 +12,12 @@ export const extractConversationMemory = (
   const recentSections: string[] = [];
 
   for (const message of messages) {
+    console.log("MESSAGE:", message.content);
+    const company = detectCompany(message.content);
+    if (company) {
+      currentCompany = company;
+    }
+    console.log("DETECTED COMPANY:", company);
     const content = message.content.toLowerCase();
     // Financial Topic Extraction
     if (content.includes("risk")) {
@@ -29,9 +38,12 @@ export const extractConversationMemory = (
     }
   }
 
+  console.log("CURRENT COMPANY:", currentCompany);
+
   return {
     recentTopics: Array.from(new Set(recentTopics)),
     recentDocuments: Array.from(new Set(recentDocuments)),
     recentSections: Array.from(new Set(recentSections)),
+    currentCompany,
   };
 };
