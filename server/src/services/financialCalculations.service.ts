@@ -1,31 +1,33 @@
-export const calculateGrowthRate = (current: number, previous: number) => {
-  if (previous === 0) {
-    return null;
-  }
-  return (((current - previous) / previous) * 100).toFixed(2);
-};
+import { RetrievedChunk } from "../modules/retrieval/types/retrieval.types";
 
-export const calculateMargin = (profit: number, revenue: number) => {
-  if (revenue === 0) {
-    return null;
-  }
-  return ((profit / revenue) * 100).toFixed(2);
-};
-
-export const buildCalculationContext = () => {
+export const buildCalculationContext = (
+  chunks: RetrievedChunk[],
+  query: string,
+) => {
   return `
-Available Financial Calculations:
+Financial Calculation Guidance:
+
+Question:
+${query}
+
+Use these formulas when applicable:
 
 1. Growth Rate
-Formula:
 ((Current - Previous) / Previous) * 100
 
 2. Profit Margin
-Formula:
 (Profit / Revenue) * 100
 
-3. CAGR
-Formula:
+3. EBITDA Margin
+(EBITDA / Revenue) * 100
+
+4. CAGR
 ((Ending / Beginning)^(1/n) - 1) * 100
+
+Retrieved Financial Evidence:
+${chunks
+  .slice(0, 3)
+  .map((chunk) => chunk.text.slice(0, 300))
+  .join("\n\n")}
 `;
 };

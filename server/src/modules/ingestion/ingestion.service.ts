@@ -1,4 +1,3 @@
-import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { extractTextFromPDF } from "../../services/pdf.service";
 import { generateEmbedding } from "../../services/embedding.service";
@@ -7,31 +6,21 @@ import { detectCompany } from "../retrieval/utils/companyDetector";
 import qdrantClient from "../qdrant/qdrant.client";
 import prisma from "../../config/prisma";
 import { extractTables } from "../../services/tableExtraction.service";
+import { extractFinancialMetrics } from "../../services/financialMetricExtraction.service";
 
 export const ingestPDF = async (file: Express.Multer.File) => {
   const extractedText = await extractTextFromPDF(file.path);
   const tables = extractTables(extractedText);
+  const metrics = tables.flatMap((table) =>
+    extractFinancialMetrics(table.rows),
+  );
 
   const chunks = createSmartChunks(extractedText);
-  const document = await prisma.document.create({
-    data: {
-      fileName: file.originalname,
-      chunksStored: chunks.length,
-    },
-  });
-
-  for (const table of tables) {
-    await prisma.financialTable.create({
-      data: {
-        documentId: document.id,
-        tableName: table.tableName,
-        rawTable: table.rows,
-      },
-    });
+  if (chunks.length === 0) {
+    throw new Error("No searchable text could be extracted from the PDF");
   }
 
-  console.log("TABLES EXTRACTED:", tables.length);
-
+  const documentId = uuidv4();
   const points = [];
   const companyName = detectCompany(extractedText);
 
@@ -44,7 +33,7 @@ export const ingestPDF = async (file: Express.Multer.File) => {
       id: uuidv4(),
       vector: embedding,
       payload: {
-        documentId: document.id,
+        documentId,
         text: chunk.text,
         companyName,
         documentName: file.originalname,
@@ -61,7 +50,53 @@ export const ingestPDF = async (file: Express.Multer.File) => {
     points,
   });
 
-  fs.unlinkSync(file.path);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.document.create({
+        data: {
+          id: documentId,
+          fileName: file.originalname,
+          chunksStored: chunks.length,
+        },
+      });
+
+      if (metrics.length > 0) {
+        await tx.financialMetric.createMany({
+          data: metrics.map((metric) => ({
+            documentId,
+            metricName: metric.metricName,
+            period: metric.period,
+            value: metric.value,
+          })),
+        });
+      }
+
+      if (tables.length > 0) {
+        await tx.financialTable.createMany({
+          data: tables.map((table) => ({
+            documentId,
+            tableName: table.tableName,
+            rawTable: table.rows,
+          })),
+        });
+      }
+    });
+  } catch (error) {
+    await qdrantClient.delete("financial_docs", {
+      filter: {
+        must: [
+          {
+            key: "documentId",
+            match: {
+              value: documentId,
+            },
+          },
+        ],
+      },
+    });
+
+    throw error;
+  }
 
   return {
     success: true,

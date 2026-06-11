@@ -25,11 +25,12 @@ model Message {
 }
 
 model Document {
-  id String @id @default(uuid())
-  fileName String
+  id           String            @id @default(uuid())
+  fileName     String
   chunksStored Int
-  createdAt DateTime @default(now())
-  tables FinancialTable[]
+  createdAt    DateTime          @default(now())
+  tables       FinancialTable[]
+  metrics      FinancialMetric[]
 }
 
 enum Role {
@@ -63,4 +64,15 @@ model FinancialTable {
   sectionName String?
   rawTable    Json
   createdAt   DateTime @default(now())
+}
+
+model FinancialMetric {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  metricName String
+  period     String
+  value      Float
+  unit       String?
+  createdAt  DateTime @default(now())
 }

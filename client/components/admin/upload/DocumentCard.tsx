@@ -2,15 +2,18 @@
 
 import { FileText, Database, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { deleteDocument } from "@/services/document/document.service";
 import { UploadedDocument } from "@/types/upload";
 
 interface Props {
   document: UploadedDocument;
+  onDeleted: (documentId: string) => void;
 }
 
-export default function DocumentCard({ document }: Props) {
+export default function DocumentCard({ document, onDeleted }: Props) {
+  const { getToken } = useAuth();
   const [deleting, setDeleting] = useState(false);
   return (
     <div className="group overflow-hidden rounded-3xl border border-stone-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-lg">
@@ -56,10 +59,11 @@ export default function DocumentCard({ document }: Props) {
           onClick={async () => {
             try {
               setDeleting(true);
+              const token = await getToken();
+              if (!token) return;
 
-              await deleteDocument(document.id);
-
-              window.location.reload();
+              await deleteDocument(document.id, token);
+              onDeleted(document.id);
             } catch (error) {
               console.error(error);
             } finally {

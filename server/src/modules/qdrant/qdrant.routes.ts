@@ -2,6 +2,7 @@ import express from "express";
 import qdrantClient from "./qdrant.client";
 import { createFinancialCollection } from "./qdrant.service";
 import { protectRoute } from "../../middleware/helper.middleware";
+import { requireAdmin } from "../../middleware/admin.middleware";
 
 const router = express.Router();
 
@@ -23,7 +24,7 @@ router.get("/", protectRoute, async (req, res) => {
   }
 });
 
-router.post("/create-collection", async (req, res) => {
+router.post("/create-collection", protectRoute, requireAdmin, async (req, res) => {
   try {
     await createFinancialCollection();
 

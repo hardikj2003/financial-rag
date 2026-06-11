@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { getDocuments, deleteDocument } from "@/services/admin/admin.service";
+import {
+  AdminDocument,
+  getDocuments,
+  deleteDocument,
+} from "@/services/admin/admin.service";
 import {
   FileText,
   Trash2,
@@ -17,27 +21,52 @@ import UploadBox from "@/components/admin/upload/UploadBox";
 
 export default function DocumentsPage() {
   const { getToken } = useAuth();
-  const [documents, setDocuments] = useState([]);
+  const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const loadDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return [];
+    const response = await getDocuments(token);
+    return response.documents || [];
+  }, [getToken]);
+
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await getToken();
-      if (!token) return;
-      const response = await getDocuments(token);
-      setDocuments(response.documents || []);
+      setDocuments(await fetchDocuments());
     } catch (error) {
       console.error("Failed to resolve vector documents:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchDocuments]);
 
   useEffect(() => {
-    loadDocuments();
-  }, []);
+    let isMounted = true;
+
+    const loadInitialDocuments = async () => {
+      try {
+        const nextDocuments = await fetchDocuments();
+        if (isMounted) {
+          setDocuments(nextDocuments);
+        }
+      } catch (error) {
+        console.error("Failed to resolve vector documents:", error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitialDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchDocuments]);
 
   const handleDelete = async (documentId: string) => {
     if (
@@ -57,14 +86,18 @@ export default function DocumentsPage() {
     }
   };
 
-  const filteredDocuments = documents.filter((doc: any) =>
-    doc.fileName.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredDocuments = useMemo(
+    () =>
+      documents.filter((doc) =>
+        doc.fileName.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [documents, searchQuery],
   );
 
   // Compute live micro-stats for top navigation ribbon tracking
-  const totalChunks = documents.reduce(
-    (acc: number, curr: any) => acc + (curr.chunksStored || 0),
-    0,
+  const totalChunks = useMemo(
+    () => documents.reduce((acc, curr) => acc + (curr.chunksStored || 0), 0),
+    [documents],
   );
 
   return (
@@ -184,7 +217,7 @@ export default function DocumentsPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2.5 max-h-[calc(100vh-240px)] overflow-y-auto no-scrollbar pr-1">
-              {filteredDocuments.map((document: any) => (
+              {filteredDocuments.map((document) => (
                 <div
                   key={document.id}
                   className="group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs hover:border-slate-300/90 transition-all duration-200"

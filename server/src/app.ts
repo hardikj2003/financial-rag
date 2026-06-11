@@ -11,9 +11,14 @@ import adminRoutes from "./modules/admin/admin.routes";
 
 const app = express();
 
+const allowedOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: allowedOrigins,
     credentials: true,
   }),
 );

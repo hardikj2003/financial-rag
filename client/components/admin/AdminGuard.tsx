@@ -32,7 +32,7 @@ export default function AdminGuard({
         }
 
         setIsAdmin(true);
-      } catch (error) {
+      } catch {
         router.replace("/");
       } finally {
         setLoading(false);
@@ -40,7 +40,7 @@ export default function AdminGuard({
     };
 
     verify();
-  }, []);
+  }, [getToken, router]);
 
   if (loading) {
     return (

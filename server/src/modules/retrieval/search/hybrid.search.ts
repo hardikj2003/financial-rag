@@ -124,5 +124,5 @@ export const hybridSearch = async (
 
   const expanded = expandToParentContexts(reranked);
   console.log("FINAL RETRIEVAL COUNT:", expanded.length);
-  return reranked.slice(0, 8);
+  return expanded.slice(0, 8);
 };

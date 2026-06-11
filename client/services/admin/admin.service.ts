@@ -1,21 +1,47 @@
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
+export interface DashboardMetrics {
+  totalUsers: number;
+  totalChats: number;
+  totalMessages: number;
+  totalDocuments: number;
+  totalChunks: number;
+}
+
+export interface DashboardMetricsResponse {
+  metrics: DashboardMetrics;
+}
+
+export interface AdminStatusResponse {
+  isAdmin: boolean;
+}
+
+export interface AdminDocument {
+  id: string;
+  fileName: string;
+  chunksStored?: number | null;
+}
+
+export interface AdminDocumentsResponse {
+  documents: AdminDocument[];
+}
+
 export const getDashboardMetrics = async (token: string) => {
   const api = await authenticatedFetch(token);
-  const response = await api.get("/admin/dashboard");
+  const response = await api.get<DashboardMetricsResponse>("/admin/dashboard");
 
   return response.data;
 };
 
 export const getAdminStatus = async (token: string) => {
   const api = await authenticatedFetch(token);
-  const response = await api.get("/admin/me");
+  const response = await api.get<AdminStatusResponse>("/admin/me");
 
   return response.data;
 };
 export const getDocuments = async (token: string) => {
   const api = await authenticatedFetch(token);
-  const response = await api.get("/admin/documents");
+  const response = await api.get<AdminDocumentsResponse>("/admin/documents");
   return response.data;
 };
 

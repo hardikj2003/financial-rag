@@ -4,6 +4,7 @@ import { buildFinancialPrompt } from "../../services/prompt.service";
 import { streamLLMResponse } from "../llm/llm.service";
 import {
   getRecentMessages,
+  getChatForUser,
   storeMessage,
   updateChatTitle,
 } from "../memory/memory.service";
@@ -23,19 +24,40 @@ export const financialChatController = async (req: Request, res: Response) => {
   try {
     const { query, chatId } = req.body;
 
-    if (!query || !chatId) {
+    if (typeof query !== "string" || typeof chatId !== "string") {
       return res.status(400).json({
         success: false,
         error: "Query and chatId required",
       });
     }
 
-    const history = await getRecentMessages(chatId);
-    const retrievalMemory = extractConversationMemory(history);
-    const rewrittenQuery = await rewriteQuery(query, history);
-    const queryType = classifyQuery(query);
+    if (!req.userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
 
-    console.log("QUERY TYPE:", queryType);
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return res.status(400).json({
+        success: false,
+        error: "Query cannot be empty",
+      });
+    }
+
+    const chat = await getChatForUser(chatId, req.userId);
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        error: "Chat not found",
+      });
+    }
+
+    const history = await getRecentMessages(chatId, req.userId);
+    const retrievalMemory = extractConversationMemory(history);
+    const rewrittenQuery = await rewriteQuery(trimmedQuery, history);
+    const queryType = classifyQuery(trimmedQuery);
     const retrievedChunks = await retrieveRelevantChunks(
       rewrittenQuery,
       retrievalMemory,
@@ -43,23 +65,17 @@ export const financialChatController = async (req: Request, res: Response) => {
 
     const compressedChunks = compressContext(rewrittenQuery, retrievedChunks);
     const context = formatSourcesForPrompt(compressedChunks);
-    console.log("RETRIEVED CHUNKS:", retrievedChunks.length);
+    const needsCalculations = detectCalculationIntent(trimmedQuery);
 
-    console.log("COMPRESSED CHUNKS:", compressedChunks.length);
-
-    console.log("CONTEXT SIZE:", context.length);
-    const needsCalculations = detectCalculationIntent(query);
-
-    const calculationContext = needsCalculations
-      ? buildCalculationContext()
+    const calculationInsights = needsCalculations
+      ? buildCalculationContext(compressedChunks, trimmedQuery)
       : "";
     const prompt = buildFinancialPrompt(
       context,
       rewrittenQuery,
       queryType,
-      calculationContext,
+      calculationInsights,
     );
-    console.log("PROMPT SIZE:", prompt.length);
     const stream = await streamLLMResponse(prompt);
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -83,10 +99,11 @@ export const financialChatController = async (req: Request, res: Response) => {
       );
     }
 
-    await storeMessage(chatId, "user", query);
-    const trimmedTitle = query.length > 40 ? query.slice(0, 40) + "..." : query;
+    await storeMessage(chatId, "user", trimmedQuery);
+    const trimmedTitle =
+      trimmedQuery.length > 40 ? trimmedQuery.slice(0, 40) + "..." : trimmedQuery;
 
-    await updateChatTitle(chatId, trimmedTitle);
+    await updateChatTitle(chatId, req.userId, trimmedTitle);
     await storeMessage(chatId, "assistant", fullResponse);
 
     const supported = await verifyAnswer(rewrittenQuery, context, fullResponse);
@@ -109,6 +126,20 @@ export const financialChatController = async (req: Request, res: Response) => {
     res.end();
   } catch (error) {
     console.error(error);
-    res.end();
+    if (res.headersSent) {
+      res.write(
+        `data: ${JSON.stringify({
+          done: true,
+          error: "Failed to generate response",
+        })}\n\n`,
+      );
+      res.end();
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate response",
+    });
   }
 };

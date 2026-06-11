@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 interface SourceItem {
-  sourceId: number;
+  sourceId?: number;
   text: string;
   documentName: string;
   chunkIndex: number;
@@ -26,6 +26,7 @@ interface Props {
 export default function SourceCard({ source }: Props) {
   const { sourceId, text, documentName, chunkIndex, score, sectionTitle } =
     source;
+  const displaySourceId = sourceId ?? 1;
 
   const [expanded, setExpanded] = useState(false);
 
@@ -53,7 +54,7 @@ export default function SourceCard({ source }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700">
-                Source {sourceId}
+                Source {displaySourceId}
               </div>
 
               <h3 className="truncate text-sm font-semibold text-slate-800">
@@ -115,7 +116,7 @@ export default function SourceCard({ source }: Props) {
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
         <div className="text-[11px] text-slate-400">
-          Citation: [Source {sourceId}]
+          Citation: [Source {displaySourceId}]
         </div>
 
         <button className="flex items-center gap-1 text-xs font-medium text-slate-500 transition-all duration-300 hover:text-slate-800">

@@ -83,7 +83,7 @@ export const keywordSearch = async (
 
   const scored = scrollResult.points
     .map((point: any) => {
-      const text = point.payload?.text || "";
+      const text = point.payload?.text || ""; 
       const sectionTitle = point.payload?.sectionTitle || "general";
       let keywordScore = calculateKeywordScore(text, query);
 

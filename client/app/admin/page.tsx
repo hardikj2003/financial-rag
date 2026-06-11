@@ -1,22 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
-import { getDashboardMetrics } from "@/services/admin/admin.service";
+import { useAuth } from "@clerk/nextjs";
+import {
+  DashboardMetrics,
+  getDashboardMetrics,
+} from "@/services/admin/admin.service";
 import MetricCard from "@/components/admin/MetricCard";
 import { Users, MessageSquare, Files, Cpu, Server } from "lucide-react";
 
 export default function AdminPage() {
   const { getToken } = useAuth();
-  const { user } = useUser();
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
         const token = await getToken();
-        console.log(token)
         if (!token) return;
         const response = await getDashboardMetrics(token);
         setMetrics(response.metrics);

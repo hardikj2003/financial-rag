@@ -1,5 +1,6 @@
-import { api } from "../api/api";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { API_BASE_URL } from "@/services/api/api";
+import { Source } from "@/store/chat/chat.store";
 
 export const createChat = async (token: string) => {
   const apiClient = await authenticatedFetch(token);
@@ -13,9 +14,9 @@ export const streamMessage = async (
   query: string,
   chatId: string,
   onToken: (token: string) => void,
-  onDone: (sources: any[], verified: boolean) => void,
+  onDone: (sources: Source[], verified: boolean) => void,
 ) => {
-  const response = await fetch("http://localhost:8000/api/retrieval/chat", {
+  const response = await fetch(`${API_BASE_URL}/retrieval/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -55,7 +56,12 @@ export const streamMessage = async (
       }
       try {
         const rawJson = trimmedLine.replace(/^data:\s*/, "");
-        const parsed = JSON.parse(rawJson);
+        const parsed = JSON.parse(rawJson) as {
+          done?: boolean;
+          sources?: Source[];
+          verified?: boolean;
+          token?: string;
+        };
         if (parsed.done) {
           onDone(parsed.sources || [], parsed.verified ?? false);
           return;

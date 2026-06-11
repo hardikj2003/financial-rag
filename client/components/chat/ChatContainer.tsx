@@ -9,7 +9,6 @@ import ChatInput from "./ChatInput";
 
 import { streamMessage } from "@/services/chat/chat.service";
 import { useChatStore } from "@/store/chat/chat.store";
-import { Source } from "@/store/chat/chat.store";
 
 export default function ChatContainer() {
   const { getToken } = useAuth();

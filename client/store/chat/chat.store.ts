@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { ChatSession } from "@/types/chat";
 
 export interface Source {
+  sourceId?: number;
   text: string;
   documentName: string;
   chunkIndex: number;

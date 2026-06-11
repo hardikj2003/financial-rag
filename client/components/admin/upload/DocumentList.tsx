@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 import DocumentCard from "./DocumentCard";
-import Skeleton from "../ui/Skeleton";
+import Skeleton from "../../ui/Skeleton";
 
 import { UploadedDocument } from "@/types/upload";
 import { getDocuments } from "@/services/document/document.service";
@@ -79,7 +79,15 @@ export default function DocumentList({ refreshKey }: Props) {
   return (
     <div className="animate-fade-in space-y-4">
       {documents.map((document) => (
-        <DocumentCard key={document.id} document={document} />
+        <DocumentCard
+          key={document.id}
+          document={document}
+          onDeleted={(documentId) =>
+            setDocuments((current) =>
+              current.filter((document) => document.id !== documentId),
+            )
+          }
+        />
       ))}
     </div>
   );

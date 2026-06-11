@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import fs from "fs";
 import { ingestPDF } from "./ingestion.service";
 
 export const uploadPDFController = async (
@@ -25,5 +26,9 @@ export const uploadPDFController = async (
       success: false,
       error: "PDF ingestion failed",
     });
+  } finally {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 };

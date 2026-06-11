@@ -1,7 +1,12 @@
-import { api } from "@/services/api/api";
+import axios from "axios";
+import { API_BASE_URL } from "@/services/api/api";
 
 export const authenticatedFetch = async (token: string) => {
-  api.defaults.headers.common.Authorization = `Bearer ${token}`;
-
-  return api;
+  return axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
 };

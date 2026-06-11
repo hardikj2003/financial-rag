@@ -17,7 +17,7 @@ import { Source } from "@/store/chat/chat.store";
 
 interface Props {
   role: "user" | "assistant";
-  content: any;
+  content: string;
   sources?: Source[];
 }
 

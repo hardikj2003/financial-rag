@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
-import { uploadPDF } from "@/services/upload/upload.service";
+import { uploadDocument } from "@/services/admin/admin.service";
 import DocumentList from "./DocumentList";
-import Toast from "../ui/Toast";
+import Toast from "../../ui/Toast";
 
 export default function UploadDashboard() {
+  const { getToken } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -19,10 +21,11 @@ export default function UploadDashboard() {
     try {
       setUploading(true);
       setUploadedFileName(file.name);
+      const token = await getToken();
+      if (!token) return;
 
-      await uploadPDF(file, (progress) => {
-        setUploadProgress(progress);
-      });
+      await uploadDocument(file, token);
+      setUploadProgress(100);
       setRefreshKey((prev) => prev + 1);
       setShowToast(true);
       setTimeout(() => {
