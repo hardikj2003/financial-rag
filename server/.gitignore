@@ -1,8 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
 
-# dependencies
-/node_modules
-/.pnp
+node_modules/
+**/node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,48 +10,102 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Environment Variables
 
-# next.js
-/.next/
-/out/
+.env
+.env.*
+!.env.example
 
-# production
-/build
+# Next.js
 
-# misc
-.DS_Store
-*.pem
+.next/
+out/
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Build Outputs
 
-# env files (can opt-in for committing if needed)
-.env*
+build/
+dist/
+coverage/
 
-# vercel
-.vercel
+# TypeScript
 
-# typescript
 *.tsbuildinfo
 next-env.d.ts
 
-.firebaserc
+# Logs
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# macOS
+
+.DS_Store
+
+# IDE
+
+.vscode/
+.idea/
+
+# Vercel
+
+.vercel/
+
+# Python
+
+venv/
+.venv/
+**pycache**/
+*.pyc
+
+# Uploads
+
+uploads/
+temp/
+tmp/
+
+# Financial RAG Generated Data
+
+storage/
+data/
+artifacts/
+
+# Qdrant
+
+qdrant_storage/
+qdrant_data/
+
+# Chroma
+
+chroma/
+chroma_db/
+
+# Local Databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+
+prisma/dev.db
+
+# PDFs & Documents (optional)
+
+*.pdf
+
+# OS Files
+
+Thumbs.db
+
+# Firebase
+
 .firebase/
-/src/generated/prisma
 
-/src/generated/prisma
+# Claude / AI Artifacts
 
-/src/generated/prisma
-
-/src/generated/prisma
-
-/src/generated/prisma
-
-/src/generated/prisma
-
-/src/generated/prisma
+.claude/
+.ai/

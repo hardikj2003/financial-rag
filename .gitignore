@@ -1,17 +1,111 @@
-# dependencies
+# Dependencies
+
 node_modules/
+**/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# environment variables
+# Environment Variables
+
 .env
+.env.*
+!.env.example
 
-# uploads
-server/uploads/
+# Next.js
 
-# next build
-client/.next/
+.next/
+out/
 
-# logs
+# Build Outputs
+
+build/
+dist/
+coverage/
+
+# TypeScript
+
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs
+
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# mac
+# macOS
+
 .DS_Store
+
+# IDE
+
+.vscode/
+.idea/
+
+# Vercel
+
+.vercel/
+
+# Python
+
+venv/
+.venv/
+**pycache**/
+*.pyc
+
+# Uploads
+
+uploads/
+temp/
+tmp/
+
+# Financial RAG Generated Data
+
+storage/
+data/
+artifacts/
+
+# Qdrant
+
+qdrant_storage/
+qdrant_data/
+
+# Chroma
+
+chroma/
+chroma_db/
+
+# Local Databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+
+prisma/dev.db
+
+# PDFs & Documents (optional)
+
+*.pdf
+
+# OS Files
+
+Thumbs.db
+
+# Firebase
+
+.firebase/
+
+# Claude / AI Artifacts
+
+.claude/
+.ai/
