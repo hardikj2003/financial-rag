@@ -7,18 +7,18 @@ import {
   getChatForUser,
   storeMessage,
   updateChatTitle,
+  DEFAULT_CHAT_TITLE,
 } from "../memory/memory.service";
 import { rewriteQuery } from "../memory/rewrite.service";
 import { formatSourcesForPrompt } from "./sourceFormatter.service";
 import { extractConversationMemory } from "./conversationMemory.service";
-import { compressContext } from "../../services/contextCompression.service";
-import {
-  verifyAnswer,
-  logVerification,
-} from "../../services/answerVerification.service";
-import { classifyQuery } from "./queryClassifier.service";
-import { detectCalculationIntent } from "./utils/detectCalculationIntent";
+import { verifyAnswer } from "../../services/answerVerification.service";
+import { analyzeQuery } from "./utils/queryAnalyzer";
 import { buildCalculationContext } from "../../services/financialCalculations.service";
+import { logger } from "../../config/logger";
+import prisma from "../../config/prisma";
+
+const MAX_QUERY_CHARS = 4000;
 
 export const financialChatController = async (req: Request, res: Response) => {
   try {
@@ -46,6 +46,13 @@ export const financialChatController = async (req: Request, res: Response) => {
       });
     }
 
+    if (trimmedQuery.length > MAX_QUERY_CHARS) {
+      return res.status(400).json({
+        success: false,
+        error: `Query exceeds ${MAX_QUERY_CHARS} characters`,
+      });
+    }
+
     const chat = await getChatForUser(chatId, req.userId);
     if (!chat) {
       return res.status(404).json({
@@ -57,75 +64,110 @@ export const financialChatController = async (req: Request, res: Response) => {
     const history = await getRecentMessages(chatId, req.userId);
     const retrievalMemory = extractConversationMemory(history);
     const rewrittenQuery = await rewriteQuery(trimmedQuery, history);
-    const queryType = classifyQuery(trimmedQuery);
+    const analysis = analyzeQuery(rewrittenQuery);
+
+    const retrievalStart = Date.now();
     const retrievedChunks = await retrieveRelevantChunks(
       rewrittenQuery,
+      analysis,
       retrievalMemory,
     );
+    const retrievalTimeMs = Date.now() - retrievalStart;
 
-    const compressedChunks = compressContext(rewrittenQuery, retrievedChunks);
-    const context = formatSourcesForPrompt(compressedChunks);
-    const needsCalculations = detectCalculationIntent(trimmedQuery);
-
-    const calculationInsights = needsCalculations
-      ? buildCalculationContext(compressedChunks, trimmedQuery)
-      : "";
-    const prompt = buildFinancialPrompt(
-      context,
-      rewrittenQuery,
-      queryType,
-      calculationInsights,
+    const context = formatSourcesForPrompt(retrievedChunks);
+    const hasTables = retrievedChunks.some((chunk) =>
+      chunk.id.startsWith("table-"),
     );
+
+    const prompt = buildFinancialPrompt(context, rewrittenQuery, analysis.type, {
+      hasTables,
+      calculationContext: analysis.needsCalculations
+        ? buildCalculationContext()
+        : undefined,
+    });
+
+    // Persist the user message BEFORE streaming so a mid-stream failure
+    // doesn't silently drop it from history.
+    await storeMessage(chatId, "user", trimmedQuery);
+
+    // Title the chat from its first message only (previously overwritten on
+    // every turn).
+    if (chat.title === DEFAULT_CHAT_TITLE) {
+      const title =
+        trimmedQuery.length > 40
+          ? trimmedQuery.slice(0, 40) + "..."
+          : trimmedQuery;
+      await updateChatTitle(chatId, req.userId, title);
+    }
+
+    const generationStart = Date.now();
     const stream = await streamLLMResponse(prompt);
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
 
     let fullResponse = "";
 
     for await (const streamChunk of stream) {
       const token =
         typeof streamChunk.choices?.[0]?.delta?.content === "string"
-          ? streamChunk.choices?.[0]?.delta?.content
+          ? streamChunk.choices[0].delta.content
           : "";
 
-      fullResponse += token;
+      if (!token) continue;
 
-      res.write(
-        `data: ${JSON.stringify({
-          token,
-        })}\n\n`,
-      );
+      fullResponse += token;
+      res.write(`data: ${JSON.stringify({ token })}\n\n`);
     }
 
-    await storeMessage(chatId, "user", trimmedQuery);
-    const trimmedTitle =
-      trimmedQuery.length > 40 ? trimmedQuery.slice(0, 40) + "..." : trimmedQuery;
+    const generationTimeMs = Date.now() - generationStart;
 
-    await updateChatTitle(chatId, req.userId, trimmedTitle);
-    await storeMessage(chatId, "assistant", fullResponse);
+    if (fullResponse) {
+      await storeMessage(chatId, "assistant", fullResponse);
+    }
 
-    const supported = await verifyAnswer(rewrittenQuery, context, fullResponse);
-
-    logVerification(rewrittenQuery, supported);
-
-    const cleanedSources = compressedChunks.map((chunk, index) => ({
+    // Trim sources for the wire: no parentText payloads, no internal fields.
+    const sources = retrievedChunks.map((chunk, index) => ({
       sourceId: index + 1,
-      ...chunk,
+      text: chunk.text,
+      documentName: chunk.documentName,
+      chunkIndex: chunk.chunkIndex,
+      sectionTitle: chunk.sectionTitle,
+      score: chunk.score,
     }));
 
-    res.write(
-      `data: ${JSON.stringify({
-        done: true,
-        verified: supported,
-        sources: cleanedSources,
-      })}\n\n`,
-    );
-
+    // Sources go out immediately. The previous flow blocked this event
+    // behind a verification LLM round-trip, adding seconds of dead air.
+    res.write(`data: ${JSON.stringify({ done: true, sources })}\n\n`);
     res.end();
+
+    // Post-hoc verification + query analytics, off the request path.
+    void (async () => {
+      const verdict = await verifyAnswer(rewrittenQuery, context, fullResponse);
+
+      if (verdict !== "SUPPORTED") {
+        logger.warn("answer verification flagged response", {
+          chatId,
+          verdict,
+          query: rewrittenQuery.slice(0, 200),
+        });
+      }
+
+      await prisma.queryLog.create({
+        data: {
+          originalQuery: trimmedQuery,
+          rewrittenQuery,
+          retrievalTimeMs,
+          generationTimeMs,
+          totalSources: retrievedChunks.length,
+        },
+      });
+    })().catch((error) => logger.error("post-response pipeline failed", error));
   } catch (error) {
-    console.error(error);
+    logger.error("chat request failed", error);
+
     if (res.headersSent) {
       res.write(
         `data: ${JSON.stringify({

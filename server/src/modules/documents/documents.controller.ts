@@ -1,3 +1,4 @@
+import { logger } from "../../config/logger";
 import { Request, Response } from "express";
 
 import prisma from "../../config/prisma";
@@ -14,7 +15,7 @@ export const getDocumentsController = async (req: Request, res: Response) => {
       documents,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,

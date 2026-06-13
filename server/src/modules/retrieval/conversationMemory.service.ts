@@ -1,49 +1,44 @@
-import { Message } from "@prisma/client";
+import type { Message } from "@prisma/client";
 import { RetrievalMemory } from "./types/retrieval.types";
 import { detectCompany } from "./utils/companyDetector";
 
-let currentCompany: string | undefined;
+const TOPIC_PATTERNS: Array<[RegExp, string]> = [
+  [/\brisks?\b/, "risk factors"],
+  [/\bcapex|capital expenditure\b/, "capital expenditure"],
+  [/\bcash flows?\b/, "cash flow"],
+  [/\bmargins?|profitab/, "profitability"],
+  [/\brevenue|sales\b/, "revenue"],
+  [/\bliquidity\b/, "liquidity"],
+];
 
+/**
+ * Derives retrieval hints from this chat's history only. All state is
+ * request-local: a previous bug kept the detected company in a module-level
+ * variable, leaking one user's context into other users' retrievals.
+ */
 export const extractConversationMemory = (
   messages: Message[],
 ): RetrievalMemory => {
-  const recentTopics: string[] = [];
-  const recentDocuments: string[] = [];
-  const recentSections: string[] = [];
+  const recentTopics = new Set<string>();
+  let currentCompany: string | undefined;
 
   for (const message of messages) {
-    console.log("MESSAGE:", message.content);
     const company = detectCompany(message.content);
     if (company) {
+      // Messages arrive oldest-first, so the most recent mention wins.
       currentCompany = company;
     }
-    console.log("DETECTED COMPANY:", company);
+
     const content = message.content.toLowerCase();
-    // Financial Topic Extraction
-    if (content.includes("risk")) {
-      recentTopics.push("risk factors");
-    }
-    if (content.includes("capex")) {
-      recentTopics.push("capital expenditure");
-    }
-    if (content.includes("cash flow")) {
-      recentTopics.push("cash flow");
-    }
-    if (content.includes("margin")) {
-      recentTopics.push("profitability");
-    }
-    // Company Tracking
-    if (content.includes("reliance")) {
-      recentDocuments.push("Reliance");
+    for (const [pattern, topic] of TOPIC_PATTERNS) {
+      if (pattern.test(content)) {
+        recentTopics.add(topic);
+      }
     }
   }
 
-  console.log("CURRENT COMPANY:", currentCompany);
-
   return {
-    recentTopics: Array.from(new Set(recentTopics)),
-    recentDocuments: Array.from(new Set(recentDocuments)),
-    recentSections: Array.from(new Set(recentSections)),
+    recentTopics: Array.from(recentTopics),
     currentCompany,
   };
 };

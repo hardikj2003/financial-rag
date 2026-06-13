@@ -1,5 +1,7 @@
 import prisma from "../../config/prisma";
 
+export const DEFAULT_CHAT_TITLE = "New Financial Chat";
+
 export const createChat = async (userId: string) => {
   return prisma.chat.create({
     data: {
@@ -60,7 +62,7 @@ export const updateChatTitle = async (
 
 export const storeMessage = async (
   chatId: string,
-  role: string,
+  role: "user" | "assistant",
   content: string,
 ) => {
   return prisma.message.create({
@@ -72,8 +74,18 @@ export const storeMessage = async (
   });
 };
 
-export const getRecentMessages = async (chatId: string, userId: string) => {
-  return prisma.message.findMany({
+/**
+ * Returns the LAST `limit` messages in chronological order. The previous
+ * implementation ordered ascending with `take`, which returned the FIRST
+ * messages of the chat — freezing query rewriting and memory extraction on
+ * the conversation's opening once it grew past the window.
+ */
+export const getRecentMessages = async (
+  chatId: string,
+  userId: string,
+  limit = 8,
+) => {
+  const messages = await prisma.message.findMany({
     where: {
       chatId,
       chat: {
@@ -81,8 +93,10 @@ export const getRecentMessages = async (chatId: string, userId: string) => {
       },
     },
     orderBy: {
-      createdAt: "asc",
+      createdAt: "desc",
     },
-    take: 8,
+    take: limit,
   });
+
+  return messages.reverse();
 };

@@ -1,128 +1,71 @@
 import { vectorSearch } from "./vector.search";
 import { keywordSearch } from "./keyword.search";
-import { deduplicateChunks } from "../utils/deduplicate";
-import { RetrievalMemory, RetrievedChunk } from "../types/retrieval.types";
-import { rerankChunks } from "./reranker";
-import { applyMetadataBoost } from "../utils/metadataBoost";
-import { expandToParentContexts } from "../../../services/parentExpansion.service";
-import { detectSectionIntent } from "../utils/detectSectionIntent";
 import { metadataSearch } from "./metadata.search";
+import { tableSearch, formatTableAsText } from "./table.search";
 import { reciprocalRankFusion } from "../utils/rrf";
-import { detectTableIntent } from "../utils/detectTableIntent";
-import { tableSearch } from "./table.search";
+import { applyMetadataBoost } from "../utils/metadataBoost";
+import { QueryAnalysis } from "../utils/queryAnalyzer";
+import { RetrievalMemory, RetrievedChunk } from "../types/retrieval.types";
+import { logger } from "../../../config/logger";
 
+const CANDIDATES_PER_QUERY = 24;
+
+/**
+ * Candidate generation for one search query:
+ * dense + lexical (+ section filter + tables when intent calls for them)
+ * → RRF fusion → metadata/memory boosts.
+ *
+ * Deduplication, reranking and parent expansion happen exactly once, at the
+ * end of the full pipeline in retrieval.service — not here. Running them per
+ * sub-query (as before) reranked on incomparable scores and expanded parents
+ * before the final ranking was known.
+ */
 export const hybridSearch = async (
   query: string,
+  analysis: QueryAnalysis,
   memory?: RetrievalMemory,
 ): Promise<RetrievedChunk[]> => {
-  const [vectorResults, keywordResults] = await Promise.all([
-    vectorSearch(query),
-    keywordSearch(query),
-  ]);
+  const company = memory?.currentCompany;
 
-  const sectionIntent = detectSectionIntent(query);
-  const wantsTables = detectTableIntent(query);
-  let metadataResults: RetrievedChunk[] = [];
-  let formattedTables: RetrievedChunk[] = [];
+  const [vectorResults, keywordResults, metadataResults, tableResults] =
+    await Promise.all([
+      vectorSearch(query, company),
+      keywordSearch(query, company),
+      analysis.sectionIntent
+        ? metadataSearch(analysis.sectionIntent, company)
+        : Promise.resolve([]),
+      analysis.wantsTables
+        ? tableSearch(query, company)
+        : Promise.resolve([]),
+    ]);
 
-  // -----------------------------
-  // Table Retrieval
-  // -----------------------------
+  const tableChunks: RetrievedChunk[] = tableResults.map((table, index) => ({
+    id: `table-${table.id}`,
+    documentId: table.documentId,
+    text: `${table.tableName}\n${formatTableAsText(table.rows)}`,
+    score: table.score,
+    documentName: table.documentName,
+    chunkIndex: index,
+    sectionTitle: table.tableName,
+  }));
 
-  if (wantsTables) {
-    const tableResults = await tableSearch(query);
-    console.log("TABLE SEARCH ENABLED");
-    console.log("TABLE RESULTS:", tableResults.length);
-    formattedTables = tableResults.map((table) => ({
-      id: table.id,
-      text: JSON.stringify(table.rows).slice(0, 1000),
-      score: table.score,
-      documentName: "Financial Table",
-      chunkIndex: 0,
-      sectionTitle: table.tableName || "Financial Table",
-      metadata: {},
-      companyName: undefined,
-    }));
-  }
+  logger.debug("hybrid search candidates", {
+    query,
+    vector: vectorResults.length,
+    keyword: keywordResults.length,
+    metadata: metadataResults.length,
+    tables: tableChunks.length,
+  });
 
-  // -----------------------------
-  // Metadata Search
-  // -----------------------------
-
-  if (sectionIntent) {
-    metadataResults = await metadataSearch(sectionIntent);
-    console.log("SECTION FILTER:", sectionIntent);
-  }
-
-  // -----------------------------
-  // Reciprocal Rank Fusion
-  // -----------------------------
-
-  const fusedResults = reciprocalRankFusion([
-    formattedTables,
-    metadataResults,
+  const fused = reciprocalRankFusion([
     vectorResults,
     keywordResults,
+    metadataResults,
+    tableChunks,
   ]);
 
-  // -----------------------------
-  // Deduplication
-  // -----------------------------
-
-  const deduplicated = deduplicateChunks(fusedResults);
-
-  // -----------------------------
-  // Metadata Boosting
-  // -----------------------------
-
-  let boosted = applyMetadataBoost(query, deduplicated);
-
-  // -----------------------------
-  // Company-Aware Boosting
-  // -----------------------------
-
-  if (memory?.currentCompany) {
-    boosted = boosted.map((chunk) => ({
-      ...chunk,
-      score:
-        chunk.companyName === memory.currentCompany
-          ? chunk.score + 20
-          : chunk.score,
-    }));
-  }
-
-  // -----------------------------
-  // Conversational Topic Boosting
-  // -----------------------------
-
-  if (memory?.recentTopics?.length) {
-    boosted = boosted.map((chunk) => {
-      let score = chunk.score;
-      const section = (chunk.sectionTitle || "").toLowerCase();
-      for (const topic of memory.recentTopics) {
-        if (section.includes(topic.toLowerCase())) {
-          score += 15;
-        }
-      }
-
-      return {
-        ...chunk,
-        score,
-      };
-    });
-  }
-
-  // -----------------------------
-  // Reranking
-  // -----------------------------
-
-  const reranked = rerankChunks(query, boosted);
-
-  // -----------------------------
-  // Parent Expansion
-  // -----------------------------
-
-  const expanded = expandToParentContexts(reranked);
-  console.log("FINAL RETRIEVAL COUNT:", expanded.length);
-  return expanded.slice(0, 8);
+  return applyMetadataBoost(analysis, fused, memory).slice(
+    0,
+    CANDIDATES_PER_QUERY,
+  );
 };

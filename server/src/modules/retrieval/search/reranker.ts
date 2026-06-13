@@ -1,69 +1,49 @@
 import { RetrievedChunk } from "../types/retrieval.types";
 
-const FINANCIAL_TERMS = [
-  "revenue",
-  "ebitda",
-  "margin",
-  "growth",
-  "guidance",
-  "profit",
-  "debt",
-  "cash flow",
-  "capex",
-  "earnings",
-  "investment",
-];
+const tokenize = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((token) => token.length > 2);
 
-const calculateFinancialBoost = (text: string) => {
-  const lower = text.toLowerCase();
-  let boost = 0;
+/**
+ * Final heuristic rerank, applied exactly once at the end of the pipeline.
+ *
+ * Blends the fused retrieval score (normalized to 0..1 within the candidate
+ * set) with query-term coverage. The previous version added raw points to
+ * scores from incomparable scales and ran twice (per sub-query and again
+ * globally), compounding the distortion.
+ *
+ * Output scores are scaled to 0..100 so they read as percentages downstream.
+ * A cross-encoder (e.g. bge-reranker) is the intended upgrade path here.
+ */
+export const rerankChunks = (
+  query: string,
+  chunks: RetrievedChunk[],
+): RetrievedChunk[] => {
+  if (chunks.length === 0) return [];
 
-  for (const term of FINANCIAL_TERMS) {
-    if (lower.includes(term)) {
-      boost += 1;
-    }
-  }
+  const queryTerms = Array.from(new Set(tokenize(query)));
+  const maxScore = Math.max(...chunks.map((c) => c.score)) || 1;
 
-  return boost;
-};
-
-const calculateQueryOverlap = (text: string, query: string) => {
-  const queryTerms = query.toLowerCase().split(/\s+/);
-  const textLower = text.toLowerCase();
-  let overlap = 0;
-
-  for (const term of queryTerms) {
-    if (textLower.includes(term)) {
-      overlap += 1;
-    }
-  }
-
-  return overlap;
-};
-
-const calculateChunkQuality = (text: string) => {
-  // Penalize tiny/noisy chunks
-  if (text.length < 120) {
-    return -2;
-  }
-  // Penalize OCR garbage
-  const weirdChars = (text.match(/[%$#@]{3,}/g) || []).length;
-  return weirdChars > 3 ? -3 : 2;
-};
-
-export const rerankChunks = (query: string, chunks: RetrievedChunk[]) => {
   return chunks
     .map((chunk) => {
-      const financialBoost = calculateFinancialBoost(chunk.text);
-      const queryOverlap = calculateQueryOverlap(chunk.text, query);
-      const qualityScore = calculateChunkQuality(chunk.text);
-      const finalScore =
-        chunk.score + financialBoost * 2 + queryOverlap * 3 + qualityScore;
+      const retrievalScore = chunk.score / maxScore;
 
-      return {
-        ...chunk,
-        score: finalScore,
-      };
+      const text = chunk.text.toLowerCase();
+      const coverage =
+        queryTerms.length > 0
+          ? queryTerms.filter((term) => text.includes(term)).length /
+            queryTerms.length
+          : 0;
+
+      // Penalize fragments too short to be self-contained evidence.
+      const qualityPenalty = chunk.text.length < 120 ? 0.15 : 0;
+
+      const blended =
+        0.7 * retrievalScore + 0.3 * coverage - qualityPenalty;
+
+      return { ...chunk, score: Math.max(0, Math.round(blended * 100)) };
     })
     .sort((a, b) => b.score - a.score);
 };

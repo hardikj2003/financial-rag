@@ -1,12 +1,11 @@
 interface ChunkMetadata {
   sectionTitle: string;
   chunkIndex: number;
-  // Parent-Child Retrieval
   parentId: string;
   parentText: string;
 }
 
-interface SmartChunk {
+export interface SmartChunk {
   text: string;
   metadata: ChunkMetadata;
 }
@@ -16,8 +15,6 @@ const FINANCIAL_HEADINGS = [
   "financial highlights",
   "risk factors",
   "capital expenditure",
-  "revenue",
-  "earnings",
   "results of operations",
   "business overview",
   "liquidity",
@@ -27,109 +24,119 @@ const FINANCIAL_HEADINGS = [
   "segment performance",
 ];
 
-const detectSectionTitle = (text: string) => {
-  const lower = text.toLowerCase();
+const CHILD_CHUNK_SIZE = 1400;
+const PARENT_TEXT_LIMIT = 3000;
+const MIN_CHUNK_CHARS = 120;
+const MIN_CHUNK_WORDS = 25;
 
-  for (const heading of FINANCIAL_HEADINGS) {
-    if (lower.includes(heading)) {
-      return heading;
+/**
+ * A heading is a short standalone LINE matching a known section name. The
+ * previous detector ran `includes()` over whole passages, so any sentence
+ * containing the word "revenue" started a new "section".
+ */
+const detectHeading = (line: string): string | null => {
+  if (line.length === 0 || line.length > 90) return null;
+
+  const lower = line.toLowerCase();
+  return FINANCIAL_HEADINGS.find((h) => lower.includes(h)) ?? null;
+};
+
+const isUsefulChunk = (text: string): boolean =>
+  text.length >= MIN_CHUNK_CHARS &&
+  text.split(/\s+/).length >= MIN_CHUNK_WORDS;
+
+interface Section {
+  title: string;
+  paragraphs: string[];
+}
+
+/**
+ * Normalizes whitespace WITHOUT destroying line structure. The previous
+ * cleaner collapsed every `\s+` to a single space, which deleted all
+ * paragraph boundaries and silently turned "paragraph chunking" into
+ * sentence chunking.
+ */
+const toLines = (text: string): string[] =>
+  text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter((line) => !/^page \d+( of \d+)?$/i.test(line));
+
+const buildSections = (lines: string[]): Section[] => {
+  const sections: Section[] = [{ title: "general", paragraphs: [] }];
+  let paragraph = "";
+
+  const flushParagraph = () => {
+    if (paragraph.trim().length > 0) {
+      sections[sections.length - 1].paragraphs.push(paragraph.trim());
     }
+    paragraph = "";
+  };
+
+  for (const line of lines) {
+    if (line === "") {
+      flushParagraph();
+      continue;
+    }
+
+    const heading = detectHeading(line);
+    if (heading) {
+      flushParagraph();
+      sections.push({ title: heading, paragraphs: [] });
+      continue;
+    }
+
+    paragraph += (paragraph ? " " : "") + line;
   }
 
-  return "general";
+  flushParagraph();
+
+  return sections.filter((section) => section.paragraphs.length > 0);
 };
 
-const cleanText = (text: string) => {
-  return text
-    .replace(/\s+/g, " ")
-    .replace(/[$#@%^&*]{3,}/g, "")
-    .replace(/page \d+/gi, "")
-    .trim();
-};
-
-const isUsefulChunk = (text: string) => {
-  if (text.length < 120) {
-    return false;
-  }
-
-  const weirdPatterns = (text.match(/[@#$%^&*]{5,}/g) || []).length;
-
-  if (weirdPatterns > 5) {
-    return false;
-  }
-
-  const words = text.split(/\s+/);
-
-  if (words.length < 40) {
-    return false;
-  }
-
-  return true;
-};
-
+/**
+ * Sections are built first, then chunked — so every child of a section
+ * carries the SAME complete parent text. The previous implementation
+ * accumulated the parent while emitting children, giving each child a
+ * different partial parent.
+ */
 export const createSmartChunks = (text: string): SmartChunk[] => {
-  const cleaned = cleanText(text);
-
-  // Paragraph-level segmentation
-  const paragraphs = cleaned.split(/\.\s+/).filter((p) => p.trim().length > 80);
+  const sections = buildSections(toLines(text));
   const chunks: SmartChunk[] = [];
-
-  let currentChunk = "";
-  let currentSection = "general";
   let chunkIndex = 0;
 
-  // Parent Section State
-  let currentParentText = "";
-  let currentParentId = "parent-0";
-  let sectionIndex = 0;
+  sections.forEach((section, sectionIndex) => {
+    const parentId = `parent-${sectionIndex}`;
+    const parentText = section.paragraphs.join("\n\n").slice(0, PARENT_TEXT_LIMIT);
 
-  for (const paragraph of paragraphs) {
-    // Detect Financial Section
-    const detectedSection = detectSectionTitle(paragraph);
+    let current = "";
 
-    // New Section Boundary
-    if (detectedSection !== "general" && detectedSection !== currentSection) {
-      currentSection = detectedSection;
-      sectionIndex++;
-      currentParentId = `parent-${sectionIndex}`;
-      currentParentText = "";
-    }
-    // Build Parent Section
-    currentParentText += paragraph + ". ";
-
-    // Build Semantic Child Chunks
-    if (currentChunk.length + paragraph.length < 1400) {
-      currentChunk += "\n\n" + paragraph;
-    } else {
-      if (isUsefulChunk(currentChunk)) {
+    const flushChunk = () => {
+      const trimmed = current.trim();
+      if (isUsefulChunk(trimmed)) {
         chunks.push({
-          text: currentChunk.trim(),
+          text: trimmed,
           metadata: {
-            sectionTitle: currentSection,
-            chunkIndex,
-            parentId: currentParentId,
-            parentText: currentParentText.trim(),
+            sectionTitle: section.title,
+            chunkIndex: chunkIndex++,
+            parentId,
+            parentText,
           },
         });
-        chunkIndex++;
       }
+      current = "";
+    };
 
-      currentChunk = paragraph;
+    for (const paragraph of section.paragraphs) {
+      if (current.length + paragraph.length > CHILD_CHUNK_SIZE && current) {
+        flushChunk();
+      }
+      current += (current ? "\n\n" : "") + paragraph;
     }
-  }
 
-  // Push Final Chunk
-  if (isUsefulChunk(currentChunk)) {
-    chunks.push({
-      text: currentChunk.trim(),
-      metadata: {
-        sectionTitle: currentSection,
-        chunkIndex,
-        parentId: currentParentId,
-        parentText: currentParentText.trim(),
-      },
-    });
-  }
+    flushChunk();
+  });
 
   return chunks;
 };

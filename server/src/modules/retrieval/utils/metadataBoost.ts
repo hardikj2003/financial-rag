@@ -1,38 +1,52 @@
-import { RetrievedChunk } from "../types/retrieval.types";
+import { RetrievedChunk, RetrievalMemory } from "../types/retrieval.types";
+import { QueryAnalysis } from "./queryAnalyzer";
 
-import { queryMetadataRouter } from "./queryMetadataRouter";
+const PRIORITY_SECTIONS = new Set([
+  "management discussion",
+  "financial highlights",
+  "results of operations",
+]);
 
+/**
+ * Multiplicative boosts on top of the fused RRF score. Multiplicative (not
+ * additive) so the boost is scale-independent: a previous version added raw
+ * points (+25, +20) to scores from incomparable scales, which let hardcoded
+ * source scores dominate the ranking entirely.
+ */
 export const applyMetadataBoost = (
-  query: string,
+  analysis: QueryAnalysis,
   chunks: RetrievedChunk[],
+  memory?: RetrievalMemory,
 ): RetrievedChunk[] => {
-  const { preferredSections } = queryMetadataRouter(query);
+  return chunks
+    .map((chunk) => {
+      let multiplier = 1;
+      const section = (chunk.sectionTitle || "").toLowerCase();
 
-  return chunks.map((chunk) => {
-    let boostedScore = chunk.score;
-    const section = (chunk.sectionTitle || "").toLowerCase();
-
-    // Section Matching Boost
-    for (const preferred of preferredSections) {
-      if (section.includes(preferred)) {
-        boostedScore += 25;
+      if (analysis.preferredSections.some((p) => section.includes(p))) {
+        multiplier *= 1.3;
       }
-    }
-    // Financial Priority Boost
-    if (
-      [
-        "management discussion",
-        "financial highlights",
-        "results of operations",
-      ].includes(section)
-    ) {
-      boostedScore += 8;
-    }
 
+      if (PRIORITY_SECTIONS.has(section)) {
+        multiplier *= 1.1;
+      }
 
-    return {
-      ...chunk,
-      score: boostedScore,
-    };
-  });
+      if (
+        memory?.currentCompany &&
+        chunk.companyName === memory.currentCompany
+      ) {
+        multiplier *= 1.25;
+      }
+
+      if (
+        memory?.recentTopics?.some((topic) =>
+          section.includes(topic.toLowerCase()),
+        )
+      ) {
+        multiplier *= 1.15;
+      }
+
+      return { ...chunk, score: chunk.score * multiplier };
+    })
+    .sort((a, b) => b.score - a.score);
 };

@@ -1,3 +1,4 @@
+import { logger } from "../../config/logger";
 import { Request, Response } from "express";
 import { createChat, getAllChats, getChatMessages } from "./memory.service";
 import { ensureUserExists } from "../auth/auth.service";
@@ -18,7 +19,7 @@ export const createChatController = async (req: Request, res: Response) => {
       chat,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,
@@ -41,7 +42,7 @@ export const getChatsController = async (req: Request, res: Response) => {
       chats,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
     res.status(500).json({
       success: false,
     });
@@ -68,7 +69,7 @@ export const getChatMessagesController = async (
       messages,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,

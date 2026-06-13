@@ -8,15 +8,27 @@ const COMPANIES = [
   "adani",
   "ltimindtree",
   "sbin",
-  "heromotocorp"
+  "heromotocorp",
 ];
 
-export const detectCompany = (
-  text: string,
-): string | undefined => {
+/**
+ * Returns the company mentioned earliest in the text (word-boundary match).
+ * The previous version returned whichever company came first in the COMPANIES
+ * array, so a Reliance report mentioning Infosys in a peer comparison could
+ * be mislabeled depending on list order.
+ */
+export const detectCompany = (text: string): string | undefined => {
   const lower = text.toLowerCase();
 
-  return COMPANIES.find((company) =>
-    lower.includes(company),
-  );
+  let best: { company: string; index: number } | undefined;
+
+  for (const company of COMPANIES) {
+    const match = new RegExp(`\\b${company}\\b`).exec(lower);
+
+    if (match && (!best || match.index < best.index)) {
+      best = { company, index: match.index };
+    }
+  }
+
+  return best?.company;
 };

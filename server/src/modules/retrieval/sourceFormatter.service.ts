@@ -1,16 +1,16 @@
 import { RetrievedChunk } from "./types/retrieval.types";
 
-export const formatSourcesForPrompt = (chunks: RetrievedChunk[]) => {
-  return chunks
+/**
+ * Each source is wrapped in explicit delimiters so document content is
+ * clearly data, not instructions — the first line of defense against
+ * prompt injection via poisoned PDFs (see the system prompt's injection
+ * rule, which references these markers).
+ */
+export const formatSourcesForPrompt = (chunks: RetrievedChunk[]) =>
+  chunks
     .map(
-      (chunk, index) => `
-[Source ${index + 1}]
-Document:
-${chunk.documentName}
-
-Content:
+      (chunk, index) => `<source id="${index + 1}" document="${chunk.documentName.replace(/"/g, "'")}">
 ${chunk.text}
-`,
+</source>`,
     )
     .join("\n\n");
-};

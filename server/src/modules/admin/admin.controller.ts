@@ -1,3 +1,4 @@
+import { logger } from "../../config/logger";
 import { Request, Response } from "express";
 import prisma from "../../config/prisma";
 import { deleteDocument, getDashboardMetrics, getDocumentsInventory } from "./admin.service";
@@ -26,7 +27,7 @@ export const dashboardMetricsController = async (
       metrics,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,
@@ -53,7 +54,7 @@ export const deleteDocumentController = async (req: Request, res: Response) => {
       success: true,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,

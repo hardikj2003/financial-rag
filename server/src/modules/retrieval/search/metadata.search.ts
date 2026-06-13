@@ -1,32 +1,33 @@
 import qdrantClient from "../../qdrant/qdrant.client";
 import { RetrievedChunk } from "../types/retrieval.types";
+import { FINANCIAL_COLLECTION } from "../../qdrant/qdrant.service";
+import { mapPointToChunk } from "./vector.search";
 
+/**
+ * Section-targeted retrieval using a native Qdrant payload filter (backed by
+ * a payload index). The previous implementation scrolled 100 arbitrary points
+ * and filtered in JavaScript, which both missed matches outside the first
+ * page and wasted bandwidth on non-matches.
+ */
 export const metadataSearch = async (
   sectionTitle: string,
+  company?: string,
+  limit = 10,
 ): Promise<RetrievedChunk[]> => {
-  const result = await qdrantClient.scroll("financial_docs", {
-    limit: 100,
+  const must: Array<Record<string, unknown>> = [
+    { key: "sectionTitle", match: { value: sectionTitle } },
+  ];
+
+  if (company) {
+    must.push({ key: "companyName", match: { value: company } });
+  }
+
+  const result = await qdrantClient.scroll(FINANCIAL_COLLECTION, {
+    limit,
     with_payload: true,
     with_vector: false,
+    filter: { must },
   });
 
-  return result.points
-    .filter((point: any) => {
-      const section = (point.payload?.sectionTitle || "").toLowerCase();
-
-      return section.includes(sectionTitle.toLowerCase());
-    })
-    .slice(0, 10)
-    .map((point: any) => ({
-      id: String(point.id),
-      text: point.payload?.text || "",
-      documentName: point.payload?.documentName,
-      chunkIndex: point.payload?.chunkIndex,
-      sectionTitle: point.payload?.sectionTitle,
-      parentId: point.payload?.parentId,
-      parentText: point.payload?.parentText,
-      score: 30,
-      metadata: point.payload || {},
-      companyName: point.payload?.companyName,
-    }));
+  return result.points.map(mapPointToChunk);
 };

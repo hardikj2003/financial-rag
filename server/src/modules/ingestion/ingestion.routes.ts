@@ -3,7 +3,7 @@ import express from "express";
 import upload from "../../middleware/upload.middleware";
 import { uploadPDFController } from "./ingestion.controller";
 import { protectRoute } from "../../middleware/helper.middleware";
-import { requireAdmin } from "../auth/auth.service";
+import { requireAdmin } from "../../middleware/admin.middleware";
 
 const router = express.Router();
 

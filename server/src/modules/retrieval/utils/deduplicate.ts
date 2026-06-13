@@ -1,16 +1,20 @@
 import { RetrievedChunk } from "../types/retrieval.types";
 
+/**
+ * Deduplicates by point id, keeping the highest-scored instance. The previous
+ * documentName-chunkIndex key collapsed all retrieved tables into one because
+ * they shared a placeholder name and index 0.
+ */
 export const deduplicateChunks = (chunks: RetrievedChunk[]) => {
-  const seen = new Set<string>();
+  const seen = new Map<string, RetrievedChunk>();
 
-  return chunks.filter((chunk) => {
-    const key = `${chunk.documentName}-${chunk.chunkIndex}`;
+  for (const chunk of chunks) {
+    const existing = seen.get(chunk.id);
 
-    if (seen.has(key)) {
-      return false;
+    if (!existing || chunk.score > existing.score) {
+      seen.set(chunk.id, chunk);
     }
-    seen.add(key);
+  }
 
-    return true;
-  });
+  return Array.from(seen.values()).sort((a, b) => b.score - a.score);
 };

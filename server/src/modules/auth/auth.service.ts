@@ -1,43 +1,15 @@
-import { NextFunction, Request, Response } from "express";
 import prisma from "../../config/prisma";
 
+/**
+ * Upsert instead of find-then-create: the previous version raced under
+ * concurrent first requests from the same new user (unique violation).
+ * The duplicate requireAdmin that lived here has been consolidated into
+ * middleware/admin.middleware.ts.
+ */
 export const ensureUserExists = async (userId: string) => {
-  const existing = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
+  return prisma.user.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId },
   });
-
-  if (existing) {
-    return existing;
-  }
-
-  return prisma.user.create({
-    data: {
-      id: userId,
-    },
-  });
-};
-
-export const requireAdmin = async (req: Request, res:Response, next: NextFunction) => {
-  if (!req.userId) {
-    return res.status(401).json({
-      success: false,
-    });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: req.userId,
-    },
-  });
-
-  if (!user || user.role !== "ADMIN") {
-    return res.status(403).json({
-      success: false,
-      error: "Forbidden",
-    });
-  }
-
-  next();
 };

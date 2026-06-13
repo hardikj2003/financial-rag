@@ -1,34 +1,30 @@
 import { RetrievedChunk } from "../types/retrieval.types";
 
+/**
+ * Reciprocal Rank Fusion. Only the *rank* inside each list matters, which is
+ * what makes fusing rankers with incomparable score scales (cosine similarity
+ * vs term frequency) valid. The fused RRF score becomes the chunk's canonical
+ * score for the rest of the pipeline — downstream boosts must scale it,
+ * never replace it.
+ */
 export const reciprocalRankFusion = (
   rankings: RetrievedChunk[][],
   k = 60,
 ): RetrievedChunk[] => {
-  const scores = new Map<
-    string,
-    RetrievedChunk & {
-      rrfScore: number;
-    }
-  >();
+  const fused = new Map<string, RetrievedChunk>();
 
-  rankings.forEach((ranking) => {
+  for (const ranking of rankings) {
     ranking.forEach((chunk, rank) => {
-      const id = String(chunk.id);
+      const contribution = 1 / (k + rank + 1);
+      const existing = fused.get(chunk.id);
 
-      const score = 1 / (k + rank + 1);
-
-      if (!scores.has(id)) {
-        scores.set(id, {
-          ...chunk,
-          rrfScore: score,
-        });
+      if (existing) {
+        existing.score += contribution;
       } else {
-        scores.get(id)!.rrfScore += score;
+        fused.set(chunk.id, { ...chunk, score: contribution });
       }
     });
-  });
+  }
 
-  return Array.from(scores.values())
-    .sort((a, b) => b.rrfScore - a.rrfScore)
-    .map(({ rrfScore, ...chunk }) => chunk);
+  return Array.from(fused.values()).sort((a, b) => b.score - a.score);
 };

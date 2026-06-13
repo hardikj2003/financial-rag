@@ -1,16 +1,36 @@
 import { RetrievedChunk } from "../modules/retrieval/types/retrieval.types";
 
+const PARENT_CONTEXT_LIMIT = 1200;
+
+/**
+ * Expands final chunks with their parent-section context, deduplicating
+ * parents so the same section text is not repeated across siblings in the
+ * prompt. Truncation lands on a sentence boundary where possible.
+ */
 export const expandToParentContexts = (
   chunks: RetrievedChunk[],
 ): RetrievedChunk[] => {
-  return chunks.map((chunk) => ({
-    ...chunk,
+  const seenParents = new Set<string>();
 
-    text: chunk.parentText
-      ? `${chunk.text}
+  return chunks.map((chunk) => {
+    if (!chunk.parentText || !chunk.parentId) {
+      return chunk;
+    }
 
-Parent Context:
-${chunk.parentText.slice(0, 400)}`
-      : chunk.text,
-  }));
+    if (seenParents.has(chunk.parentId)) {
+      return chunk;
+    }
+    seenParents.add(chunk.parentId);
+
+    let parent = chunk.parentText.slice(0, PARENT_CONTEXT_LIMIT);
+    const lastSentenceEnd = parent.lastIndexOf(". ");
+    if (lastSentenceEnd > PARENT_CONTEXT_LIMIT / 2) {
+      parent = parent.slice(0, lastSentenceEnd + 1);
+    }
+
+    return {
+      ...chunk,
+      text: `${chunk.text}\n\nSection context:\n${parent}`,
+    };
+  });
 };

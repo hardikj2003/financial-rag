@@ -1,3 +1,4 @@
+import { logger } from "../../config/logger";
 import express from "express";
 import qdrantClient from "./qdrant.client";
 import { createFinancialCollection } from "./qdrant.service";
@@ -15,7 +16,7 @@ router.get("/", protectRoute, async (req, res) => {
       collections,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,
@@ -33,7 +34,7 @@ router.post("/create-collection", protectRoute, requireAdmin, async (req, res) =
       message: "Collection created successfully",
     });
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,

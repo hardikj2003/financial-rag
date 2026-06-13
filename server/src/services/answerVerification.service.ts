@@ -1,13 +1,36 @@
 import { generateLLMResponse } from "../modules/llm/llm.service";
+import { logger } from "../config/logger";
 
-let verifiedAnswers = 0;
-let unsupportedAnswers = 0;
+export type Verdict = "SUPPORTED" | "UNSUPPORTED" | "UNKNOWN";
+
+/**
+ * Order matters: "UNSUPPORTED".includes("SUPPORTED") is true, so the
+ * negative verdict must be checked first.
+ */
+export const parseVerdict = (raw: string): Verdict => {
+  const normalized = raw.trim().toUpperCase();
+
+  if (normalized.includes("UNSUPPORTED")) {
+    return "UNSUPPORTED";
+  }
+
+  if (normalized.includes("SUPPORTED")) {
+    return "SUPPORTED";
+  }
+
+  return "UNKNOWN";
+};
 
 export const verifyAnswer = async (
   query: string,
   context: string,
   answer: string,
-): Promise<boolean> => {
+): Promise<Verdict> => {
+  // Nothing to verify when the model declined to answer.
+  if (answer.includes("could not find relevant information")) {
+    return "SUPPORTED";
+  }
+
   const prompt = `
 You are a financial compliance verifier.
 
@@ -21,45 +44,18 @@ Answer:
 ${answer}
 
 Check:
+1. Are all factual claims supported by the context?
+2. Are all financial figures and percentages supported?
+3. Are all conclusions supported?
 
-1. Are all factual claims supported?
-2. Are financial figures supported?
-3. Are percentages supported?
-4. Are conclusions supported?
-
-Return ONLY:
-
-SUPPORTED
-
-or
-
-UNSUPPORTED
+Respond with exactly one word: SUPPORTED or UNSUPPORTED.
 `;
 
-  const result = await generateLLMResponse(prompt);
-
-  return result.trim().toUpperCase().includes("SUPPORTED");
-};
-
-export const logVerification = (query: string, supported: boolean) => {
-  if (supported) {
-    verifiedAnswers++;
-  } else {
-    unsupportedAnswers++;
+  try {
+    const result = await generateLLMResponse(prompt);
+    return parseVerdict(result);
+  } catch (error) {
+    logger.error("answer verification failed", error);
+    return "UNKNOWN";
   }
-
-  if (!supported) {
-    console.warn("UNSUPPORTED ANSWER DETECTED");
-  }
-
-  console.log("VERIFICATION:", {
-    query,
-    supported,
-  });
-
-  console.log("VERIFICATION STATS:", {
-    verifiedAnswers,
-    unsupportedAnswers,
-    total: verifiedAnswers + unsupportedAnswers,
-  });
 };

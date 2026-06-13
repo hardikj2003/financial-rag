@@ -1,3 +1,4 @@
+import { logger } from "../config/logger";
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 
@@ -36,7 +37,7 @@ export const requireAdmin = async (
 
     next();
   } catch (error) {
-    console.error(error);
+    logger.error("request failed", error);
 
     res.status(500).json({
       success: false,

@@ -1,6 +1,6 @@
 import express from "express";
 import { protectRoute } from "../../middleware/helper.middleware";
-import { requireAdmin } from "../auth/auth.service";
+import { requireAdmin } from "../../middleware/admin.middleware";
 import {
   adminMeController,
   dashboardMetricsController,
