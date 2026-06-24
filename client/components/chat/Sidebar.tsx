@@ -5,8 +5,6 @@ import {
   Plus,
   LayoutGrid,
   MessageSquare,
-  Settings2,
-  Search,
   Shield,
   Terminal,
   BookOpenText,
@@ -22,8 +20,14 @@ import {
 } from "@/services/chat/chat.service";
 import { useChatStore } from "@/store/chat/chat.store";
 import { getAdminStatus } from "@/services/admin/admin.service";
+import { cn } from "@/lib/utils";
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const { getToken } = useAuth();
   const { chats, setChats, setMessages, setActiveChat, activeChatId } =
     useChatStore();
@@ -76,6 +80,7 @@ export default function Sidebar() {
       setChats([newChat, ...chats]);
       setMessages([]);
       setActiveChat(newChat.id);
+      onClose?.();
     } catch (error) {
       console.error(error);
     }
@@ -88,16 +93,32 @@ export default function Sidebar() {
       setActiveChat(chatId);
       const response = await getChatMessages(chatId, token);
       setMessages(response.messages);
+      onClose?.();
     } catch (error) {
       console.error(error);
     }
   };
 
   return (
-    <aside className="hidden h-screen w-80 border-r border-stone-200 bg-white md:flex md:flex-col justify-between">
-      <div>
+    <>
+      {/* Mobile backdrop */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={cn(
+          "fixed inset-0 z-40 bg-slate-900/40 transition-opacity md:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-80 max-w-[85vw] flex-col border-r border-slate-200 bg-white transition-transform duration-300 md:static md:z-auto md:max-w-none md:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        )}
+      >
         {/* Header */}
-        <div className="border-b border-stone-100 px-6 py-5">
+        <div className="shrink-0 border-b border-stone-100 px-6 py-5">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-900 text-white shadow-sm">
@@ -114,10 +135,6 @@ export default function Sidebar() {
                 </p>
               </div>
             </div>
-
-            <button className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700">
-              <Settings2 size={17} />
-            </button>
           </div>
 
           <Button
@@ -129,8 +146,8 @@ export default function Sidebar() {
           </Button>
         </div>
 
-        {/* Main Navigation Content */}
-        <div className="flex flex-col px-4 py-4 overflow-hidden">
+        {/* Main Navigation Content (single scroll region) */}
+        <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
           <Link
             href="/docs"
             className="mb-4 flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-xs font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-white"
@@ -148,23 +165,16 @@ export default function Sidebar() {
                 Recent Chats
               </h2>
             </div>
-
-            <button className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700">
-              <Search size={14} />
-            </button>
           </div>
 
-          <div className="custom-scrollbar overflow-y-auto pr-1 max-h-[calc(100vh-320px)]">
-            <ChatHistory
-              onSelectChat={handleSelectChat}
-              activeChatId={activeChatId}
-            />
-          </div>
+          <ChatHistory
+            onSelectChat={handleSelectChat}
+            activeChatId={activeChatId}
+          />
         </div>
-      </div>
 
-      {/* Footer Area with Refined Layout Blocks */}
-      <div className="mt-auto px-4 pb-4 space-y-3">
+        {/* Footer Area with Refined Layout Blocks */}
+        <div className="shrink-0 px-4 pb-4 pt-2 space-y-3">
         {/* Redesigned Admin Button Panel (Appears stacked right above the profile segment) */}
         {isAdmin && (
           <Link
@@ -212,7 +222,8 @@ export default function Sidebar() {
             />
           </div>
         </div>
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }

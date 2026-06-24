@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import {
-  Bot,
-  User,
-  Copy,
-  RotateCcw,
-  Check,
-  Pencil,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { Bot, User, Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
 import SourceCard from "./SourceCard";
 import { Source } from "@/store/chat/chat.store";
 
@@ -81,19 +72,6 @@ export default function MessageBubble({ role, content, sources }: Props) {
                 <p className="whitespace-pre-wrap text-sm leading-7">
                   {normalizedContent}
                 </p>
-
-                {/* User Actions */}
-                <div className="mt-3 flex items-center justify-end gap-2 opacity-100">
-                  <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                    <Pencil size={12} />
-                    Edit
-                  </button>
-
-                  <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                    <RotateCcw size={12} />
-                    Retry
-                  </button>
-                </div>
               </>
             ) : (
               <>
@@ -207,6 +185,7 @@ export default function MessageBubble({ role, content, sources }: Props) {
                 <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-4">
                   <button
                     onClick={copyToClipboard}
+                    aria-label="Copy response"
                     className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
                   >
                     {copied ? (
@@ -220,11 +199,6 @@ export default function MessageBubble({ role, content, sources }: Props) {
                         Copy
                       </>
                     )}
-                  </button>
-
-                  <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800">
-                    <RotateCcw size={14} />
-                    Regenerate
                   </button>
                 </div>
               </>

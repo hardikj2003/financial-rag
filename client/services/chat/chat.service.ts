@@ -29,7 +29,16 @@ export const streamMessage = async (
   });
 
   if (!response.ok) {
-    throw new Error("Failed to stream response");
+    // Surface the server's message (e.g. rate-limit notice) when available.
+    const fallback =
+      response.status === 429
+        ? "The daily AI usage limit has been reached. Please try again later."
+        : "Failed to generate a response. Please try again.";
+    const message = await response
+      .json()
+      .then((data) => data?.error || fallback)
+      .catch(() => fallback);
+    throw new Error(message);
   }
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();

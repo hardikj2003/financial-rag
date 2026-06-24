@@ -118,14 +118,6 @@ export default function SourceCard({ source }: Props) {
         <div className="text-[11px] text-slate-400">
           Citation: [Source {displaySourceId}]
         </div>
-
-        <button className="flex items-center gap-1 text-xs font-medium text-slate-500 transition-all duration-300 hover:text-slate-800">
-          View Source
-          <ChevronRight
-            size={14}
-            className="transition-transform duration-300 group-hover:translate-x-0.5"
-          />
-        </button>
       </div>
     </div>
   );

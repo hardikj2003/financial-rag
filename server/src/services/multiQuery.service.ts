@@ -38,7 +38,7 @@ Rules:
 `;
 
   try {
-    const response = await generateLLMResponse(prompt);
+    const response = await generateLLMResponse(prompt, { fast: true });
 
     const generated = response
       .split("\n")

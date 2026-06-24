@@ -44,7 +44,7 @@ REWRITTEN STANDALONE QUERY:`,
   };
 
   try {
-    const rewritten = (await generateLLMResponse(prompt)).trim();
+    const rewritten = (await generateLLMResponse(prompt, { fast: true })).trim();
 
     // Defend against the model answering instead of rewriting.
     if (

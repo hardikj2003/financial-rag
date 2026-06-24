@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  BarChart3,
-  Settings,
-  ShieldCheck,
-} from "lucide-react";
+import { LayoutDashboard, FileText, ShieldCheck, Activity } from "lucide-react";
 import AdminGuard from "@/components/admin/AdminGuard";
 
 export default function AdminLayout({
@@ -22,9 +15,7 @@ export default function AdminLayout({
   const navItems = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/documents", label: "Documents", icon: FileText },
-    { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/analytics", label: "System Analytics", icon: BarChart3 },
-    { href: "/admin/settings", label: "Global Settings", icon: Settings },
+    { href: "/admin/observability", label: "Observability", icon: Activity },
   ];
 
   return (
@@ -52,7 +43,10 @@ export default function AdminLayout({
             <nav className="space-y-1.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href;
+                const isActive =
+                  item.href === "/admin"
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href);
 
                 return (
                   <Link

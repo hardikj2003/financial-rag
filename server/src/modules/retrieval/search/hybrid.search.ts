@@ -7,6 +7,7 @@ import { applyMetadataBoost } from "../utils/metadataBoost";
 import { QueryAnalysis } from "../utils/queryAnalyzer";
 import { RetrievalMemory, RetrievedChunk } from "../types/retrieval.types";
 import { logger } from "../../../config/logger";
+import { QueryTracer } from "../../../services/tracing/queryTracer";
 
 const CANDIDATES_PER_QUERY = 24;
 
@@ -24,6 +25,7 @@ export const hybridSearch = async (
   query: string,
   analysis: QueryAnalysis,
   memory?: RetrievalMemory,
+  tracer?: QueryTracer,
 ): Promise<RetrievedChunk[]> => {
   const company = memory?.currentCompany;
 
@@ -64,8 +66,23 @@ export const hybridSearch = async (
     tableChunks,
   ]);
 
-  return applyMetadataBoost(analysis, fused, memory).slice(
+  const boosted = applyMetadataBoost(analysis, fused, memory).slice(
     0,
     CANDIDATES_PER_QUERY,
   );
+
+  if (tracer) {
+    tracer.recordRetriever({ retriever: "vector", searchQuery: query, company, results: vectorResults });
+    tracer.recordRetriever({ retriever: "keyword", searchQuery: query, company, results: keywordResults });
+    if (metadataResults.length)
+      tracer.recordRetriever({ retriever: "metadata", searchQuery: query, company, results: metadataResults });
+    if (tableChunks.length)
+      tracer.recordRetriever({ retriever: "table", searchQuery: query, company, results: tableChunks });
+    tracer.recordFusion(
+      [...vectorResults, ...keywordResults, ...metadataResults, ...tableChunks],
+      boosted,
+    );
+  }
+
+  return boosted;
 };

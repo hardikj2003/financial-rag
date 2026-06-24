@@ -1,3 +1,5 @@
+import { detectCompanies } from "./companyDetector";
+
 export type QueryType = "FACT_LOOKUP" | "ANALYSIS" | "COMPARISON" | "SUMMARY";
 
 export interface QueryAnalysis {
@@ -6,7 +8,14 @@ export interface QueryAnalysis {
   preferredSections: string[];
   wantsTables: boolean;
   needsCalculations: boolean;
+  /** Canonical companies referenced, in order of appearance. */
+  companies: string[];
+  /** Investment/recommendation intent — triggers the educational disclaimer. */
+  isAdvice: boolean;
 }
+
+const ADVICE_PATTERN =
+  /\binvest|should i (buy|choose|pick|invest|go with)|which (one )?(should|to|is better)|better (investment|stock|buy|option|choice)|worth (buying|investing)|recommend|portfolio\b/;
 
 const SECTION_RULES: Array<[RegExp, string]> = [
   [/\brisks?|threats?|uncertaint/, "risk factors"],
@@ -71,11 +80,19 @@ export const analyzeQuery = (query: string): QueryAnalysis => {
     ([pattern, sections]) => (pattern.test(q) ? sections : []),
   );
 
+  const companies = detectCompanies(q);
+
+  // Two or more companies in one question is a comparison, even without an
+  // explicit "compare"/"vs" keyword (e.g. "Reliance or SBI to invest in?").
+  const type: QueryType = companies.length >= 2 ? "COMPARISON" : classify(q);
+
   return {
-    type: classify(q),
+    type,
     sectionIntent: sectionRule ? sectionRule[1] : null,
     preferredSections: Array.from(new Set(preferredSections)),
     wantsTables: TABLE_PATTERN.test(q),
     needsCalculations: CALCULATION_PATTERN.test(q),
+    companies,
+    isAdvice: ADVICE_PATTERN.test(q),
   };
 };

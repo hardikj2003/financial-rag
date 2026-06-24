@@ -1,34 +1,60 @@
-const COMPANIES = [
-  "reliance",
-  "infosys",
-  "tcs",
-  "wipro",
-  "hdfc",
-  "icici",
-  "adani",
-  "ltimindtree",
-  "sbin",
-  "heromotocorp",
-];
-
 /**
- * Returns the company mentioned earliest in the text (word-boundary match).
- * The previous version returned whichever company came first in the COMPANIES
- * array, so a Reliance report mentioning Infosys in a peer comparison could
- * be mislabeled depending on list order.
+ * Canonical company → aliases. The canonical key is what gets stored as
+ * `companyName` at ingestion and used as the Qdrant filter value at query
+ * time, so both sides stay consistent. Aliases let us recognise the many
+ * ways a company is referred to (e.g. "SBI", "State Bank of India", "SBIN").
  */
-export const detectCompany = (text: string): string | undefined => {
-  const lower = text.toLowerCase();
+const COMPANY_ALIASES: Record<string, string[]> = {
+  reliance: ["reliance industries", "reliance", "ril"],
+  infosys: ["infosys", "infy"],
+  tcs: ["tata consultancy services", "tcs"],
+  wipro: ["wipro"],
+  hdfc: ["hdfc bank", "hdfc"],
+  icici: ["icici bank", "icici"],
+  adani: ["adani"],
+  ltimindtree: ["ltimindtree", "lti mindtree"],
+  sbi: ["state bank of india", "sbi", "sbin"],
+  heromotocorp: ["hero motocorp", "heromotocorp"],
+};
 
-  let best: { company: string; index: number } | undefined;
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  for (const company of COMPANIES) {
-    const match = new RegExp(`\\b${company}\\b`).exec(lower);
+/** Index of the earliest occurrence of any alias, or -1. */
+const earliestMatch = (lower: string, aliases: string[]): number => {
+  let earliest = -1;
 
-    if (match && (!best || match.index < best.index)) {
-      best = { company, index: match.index };
+  for (const alias of aliases) {
+    const match = new RegExp(`\\b${escapeRegExp(alias)}\\b`).exec(lower);
+    if (match && (earliest === -1 || match.index < earliest)) {
+      earliest = match.index;
     }
   }
 
-  return best?.company;
+  return earliest;
 };
+
+/**
+ * Returns every canonical company mentioned in the text, ordered by first
+ * appearance. Used to detect comparison queries ("Reliance vs SBI") and to
+ * drive per-company retrieval.
+ */
+export const detectCompanies = (text: string): string[] => {
+  const lower = text.toLowerCase();
+
+  return Object.entries(COMPANY_ALIASES)
+    .map(([canonical, aliases]) => ({
+      canonical,
+      index: earliestMatch(lower, aliases),
+    }))
+    .filter((entry) => entry.index !== -1)
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.canonical);
+};
+
+/**
+ * The single most prominent (earliest-mentioned) company, or undefined.
+ * Backwards-compatible with existing callers (memory, ingestion).
+ */
+export const detectCompany = (text: string): string | undefined =>
+  detectCompanies(text)[0];

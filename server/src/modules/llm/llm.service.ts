@@ -13,8 +13,18 @@ const groq = () => {
   return groqClient;
 };
 
+// The 70B model answers the user. Auxiliary calls (query rewrite, multi-query
+// expansion, answer verification) go to a cheaper, separately rate-limited
+// model so they don't drain the 70B token-per-day budget.
 const MODEL = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+const FAST_MODEL = process.env.GROQ_FAST_MODEL ?? "llama-3.1-8b-instant";
 const REQUEST_TIMEOUT_MS = 60_000;
+
+// Cap output so the per-minute token budget (input + reserved output) isn't
+// blown. Without an explicit limit Groq reserves a large default, which alone
+// can exceed free-tier TPM and trigger a 413 "request too large".
+const ANSWER_MAX_TOKENS = Number(process.env.GROQ_MAX_OUTPUT_TOKENS ?? 1200);
+const FAST_MAX_TOKENS = Number(process.env.GROQ_FAST_MAX_TOKENS ?? 512);
 
 export interface ChatPrompt {
   system?: string;
@@ -34,12 +44,19 @@ const toMessages = (prompt: string | ChatPrompt) => {
   ];
 };
 
+/** True when the SDK threw a 429 (rate limit / quota exhausted). */
+export const isRateLimitError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { status?: number }).status === 429;
+
 export const generateLLMResponse = async (
   prompt: string | ChatPrompt,
+  options?: { fast?: boolean },
 ): Promise<string> => {
   const completion = await groq().chat.completions.create(
     {
-      model: MODEL,
+      model: options?.fast ? FAST_MODEL : MODEL,
       messages: toMessages(prompt),
       temperature: 0.3,
     },

@@ -21,11 +21,23 @@ export const parseVerdict = (raw: string): Verdict => {
   return "UNKNOWN";
 };
 
+/**
+ * Verification re-sends the full context + answer to an LLM, so it roughly
+ * doubles per-message token use. It runs on the cheap model and can be turned
+ * off entirely (ENABLE_ANSWER_VERIFICATION=false) to conserve quota.
+ */
+export const verificationEnabled = (): boolean =>
+  process.env.ENABLE_ANSWER_VERIFICATION !== "false";
+
 export const verifyAnswer = async (
   query: string,
   context: string,
   answer: string,
 ): Promise<Verdict> => {
+  if (!verificationEnabled()) {
+    return "UNKNOWN";
+  }
+
   // Nothing to verify when the model declined to answer.
   if (answer.includes("could not find relevant information")) {
     return "SUPPORTED";
@@ -52,7 +64,7 @@ Respond with exactly one word: SUPPORTED or UNSUPPORTED.
 `;
 
   try {
-    const result = await generateLLMResponse(prompt);
+    const result = await generateLLMResponse(prompt, { fast: true });
     return parseVerdict(result);
   } catch (error) {
     logger.error("answer verification failed", error);

@@ -8,6 +8,7 @@ import retrievalRoutes from "./modules/retrieval/retrieval.routes";
 import memoryRoutes from "./modules/memory/memory.routes";
 import documentsRoutes from "./modules/documents/documents.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import observabilityRoutes from "./modules/observability/observability.routes";
 import { logger } from "./config/logger";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/retrieval", retrievalRoutes);
 app.use("/api/memory", memoryRoutes);
 app.use("/api/documents", documentsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/observability", observabilityRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: "Not found" });

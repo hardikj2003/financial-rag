@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Financial RAG — Engineering Documentation</title>
+    <meta
+      name="description"
+      content="Architecture and engineering documentation for the Financial RAG platform: ingestion, hybrid retrieval, RRF fusion, citations, memory, and verification."
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              ink: "#0a0f1a",
+              panel: "#0f1626",
+              panel2: "#141d30",
+              line: "#1f2a40",
+              accent: "#3b82f6",
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background:
+          radial-gradient(1200px 600px at 80% -10%, #122039 0, transparent 60%),
+          #0a0f1a;
+      }
+      ::selection {
+        background: #1d4ed8;
+        color: #fff;
+      }
+      .content-section {
+        scroll-margin-top: 96px;
+      }
+      .prose-doc h3 {
+        scroll-margin-top: 96px;
+      }
+      /* Scrollbars */
+      ::-webkit-scrollbar {
+        width: 9px;
+        height: 9px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #243149;
+        border-radius: 999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #34465f;
+      }
+      .nav-link.active {
+        color: #fff;
+        background: #16223a;
+        border-color: #2b3b59;
+      }
+      details > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      details > summary::-webkit-details-marker {
+        display: none;
+      }
+      details[open] .chev {
+        transform: rotate(90deg);
+      }
+      .mermaid {
+        background: #0c1322;
+        border: 1px solid #1f2a40;
+        border-radius: 14px;
+        padding: 18px;
+        overflow-x: auto;
+      }
+      .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body class="font-sans text-slate-300 antialiased">
+    <!-- ===================== TOP BAR ===================== -->
+    <header
+      class="sticky top-0 z-40 border-b border-line/80 bg-ink/85 backdrop-blur"
+    >
+      <div class="mx-auto flex h-16 max-w-[1500px] items-center gap-4 px-4">
+        <button
+          id="menuBtn"
+          class="rounded-lg p-2 text-slate-400 hover:bg-panel2 lg:hidden"
+          aria-label="Toggle navigation"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+
+        <a href="#top" class="flex items-center gap-2.5">
+          <span
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold"
+            >₹</span
+          >
+          <span class="text-[15px] font-bold tracking-tight text-white"
+            >Financial<span class="text-blue-400">RAG</span></span
+          >
+          <span
+            class="ml-1 hidden rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:inline"
+            >Docs</span
+          >
+        </a>
+
+        <div class="relative ml-auto w-full max-w-xs">
+          <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input
+            id="search"
+            type="text"
+            placeholder="Search docs…"
+            class="w-full rounded-xl border border-line bg-panel py-2 pl-9 pr-3 text-sm text-slate-200 outline-none placeholder:text-slate-500 focus:border-blue-500/60"
+          />
+        </div>
+
+        <a
+          href="#interview"
+          class="hidden shrink-0 rounded-xl border border-line bg-panel px-3 py-2 text-xs font-semibold text-slate-300 hover:border-blue-500/50 hover:text-white md:inline"
+          >Interview Guide</a
+        >
+      </div>
+    </header>
+
+    <div id="top" class="mx-auto flex max-w-[1500px]">
+      <!-- ===================== SIDEBAR ===================== -->
+      <aside
+        id="sidebar"
+        class="fixed inset-y-0 left-0 z-50 w-72 -translate-x-full overflow-y-auto border-r border-line bg-panel px-3 py-5 transition-transform lg:sticky lg:top-16 lg:z-0 lg:h-[calc(100vh-4rem)] lg:translate-x-0"
+      >
+        <nav id="nav" class="space-y-1 text-sm"></nav>
+      </aside>
+      <div
+        id="backdrop"
+        class="fixed inset-0 z-40 hidden bg-black/60 lg:hidden"
+      ></div>
+
+      <!-- ===================== MAIN ===================== -->
+      <main class="min-w-0 flex-1 px-5 py-10 md:px-10 lg:px-14">
+        <div class="prose-doc mx-auto max-w-4xl">
+          <!-- HERO -->
+          <section id="overview" class="content-section">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Engineering Documentation</p>
+            <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
+              Financial RAG Platform
+            </h1>
+            <p class="mt-5 text-lg leading-8 text-slate-400">
+              A retrieval-augmented question-answering system for financial
+              documents. Upload annual reports and filings, and ask grounded
+              questions that are answered with citations, streamed token by
+              token, and checked against the retrieved evidence.
+            </p>
+
+            <div class="mt-8 grid gap-4 sm:grid-cols-3">
+              <div class="rounded-2xl border border-line bg-panel2 p-5">
+                <div class="text-2xl font-bold text-white">Hybrid</div>
+                <div class="mt-1 text-sm text-slate-400">Dense + lexical + metadata + table retrieval fused with RRF</div>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel2 p-5">
+                <div class="text-2xl font-bold text-white">Grounded</div>
+                <div class="mt-1 text-sm text-slate-400">Every claim cited <code class="text-blue-300">[Source N]</code>; answers verified post-hoc</div>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel2 p-5">
+                <div class="text-2xl font-bold text-white">Local-first</div>
+                <div class="mt-1 text-sm text-slate-400">On-device embeddings, self-hosted vector DB, streamed LLM</div>
+              </div>
+            </div>
+
+            <div class="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+              <strong class="font-semibold">Documentation accuracy.</strong>
+              This document describes the codebase <em>as it actually exists</em>.
+              Two notes where reality differs from common assumptions:
+              embeddings run via <strong>Xenova Transformers (bge-small-en-v1.5)</strong>
+              in-process — <strong>not Ollama</strong>; and a former
+              <strong>context-compression</strong> stage was removed during a
+              correctness audit (see <a href="#tradeoffs" class="underline">Tradeoffs</a>).
+            </div>
+          </section>
+
+          <!-- 1. EXECUTIVE SUMMARY -->
+          <section id="summary" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">1 · Executive Summary</h2>
+            <p class="mt-4 text-slate-400">
+              Generic LLMs cannot answer questions about a specific company's
+              latest filing — the data is private, too large for a context
+              window, and answers must be traceable. This platform solves that
+              with RAG: documents are chunked, embedded, and indexed; at query
+              time the most relevant evidence is retrieved and handed to the LLM
+              with strict instructions to answer <em>only</em> from that evidence
+              and cite it.
+            </p>
+
+            <div class="mt-6 grid gap-5 md:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Target users</h3>
+                <ul class="mt-3 space-y-2 text-sm text-slate-400">
+                  <li>• Analysts asking grounded questions over reports</li>
+                  <li>• Admins ingesting & curating the document corpus</li>
+                  <li>• Engineers maintaining the retrieval pipeline</li>
+                </ul>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Core capabilities</h3>
+                <ul class="mt-3 space-y-2 text-sm text-slate-400">
+                  <li>• PDF ingestion → chunking → embedding → indexing</li>
+                  <li>• Hybrid retrieval with RRF fusion & reranking</li>
+                  <li>• Conversational memory & query rewriting</li>
+                  <li>• Streaming answers with citations & verification</li>
+                </ul>
+              </div>
+            </div>
+
+            <h3 class="mt-10 text-lg font-semibold text-white">System overview</h3>
+            <div class="mermaid mt-4">
+flowchart LR
+  U([User]) --> FE["Next.js Frontend<br/>(chat UI, SSE client)"]
+  FE -->|Bearer token| API["Express API<br/>(Clerk auth)"]
+  API --> RET["Retrieval Pipeline"]
+  RET --> QD[("Qdrant<br/>vectors")]
+  RET --> PG[("PostgreSQL<br/>chats, tables, metrics")]
+  RET --> LLM["Groq<br/>Llama 3.3 70B"]
+  LLM -->|SSE token stream| FE
+  ADM([Admin]) --> FE
+  FE -->|PDF upload| ING["Ingestion Pipeline"]
+  ING --> QD
+  ING --> PG
+            </div>
+          </section>
+
+          <!-- 2. ARCHITECTURE -->
+          <section id="architecture" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">2 · Complete Architecture</h2>
+            <p class="mt-4 text-slate-400">
+              The system is a classic three-tier split — Next.js client, Express
+              API, and stateful stores (Qdrant + PostgreSQL) — with two
+              long-running pipelines (ingestion and retrieval) and two external
+              services (Clerk for auth, Groq for generation).
+            </p>
+
+            <h3 class="mt-8 text-lg font-semibold text-white">Backend module map</h3>
+            <div class="mermaid mt-4">
+flowchart TB
+  subgraph Entry
+    APP["app.ts<br/>cors · json · clerk · routes · error handler"]
+  end
+  APP --> ING[ingestion]
+  APP --> RET[retrieval]
+  APP --> MEM[memory]
+  APP --> ADM[admin]
+  APP --> DOC[documents]
+  APP --> QDR[qdrant]
+  RET --> LLM[llm.service · Groq]
+  RET --> SRCH["search/<br/>vector · keyword · metadata · table · hybrid · reranker"]
+  RET --> UTL["utils/<br/>rrf · dedupe · metadataBoost · queryAnalyzer · companyDetector"]
+  ING --> SVC["services/<br/>pdf · smartChunk · embedding · tableExtraction · metricExtraction"]
+  RET --> SVC
+  MEM --> DB[(PostgreSQL via Prisma)]
+  ADM --> DB
+  SRCH --> VDB[(Qdrant)]
+  ING --> VDB
+  ING --> DB
+            </div>
+
+            <h3 class="mt-10 text-lg font-semibold text-white">Retrieval architecture</h3>
+            <div class="mermaid mt-4">
+flowchart TB
+  Q[User query] --> MEMX[extractConversationMemory]
+  MEMX --> RW[rewriteQuery LLM]
+  RW --> AN[analyzeQuery<br/>type · section · tables · calc]
+  AN --> MQ{ANALYSIS or<br/>COMPARISON?}
+  MQ -- yes --> MQG[multi-query expansion]
+  MQ -- no --> ONE[single query]
+  MQG --> HS
+  ONE --> HS
+  subgraph HS["hybridSearch (per query)"]
+    V[vector.search] --> RRF
+    K[keyword.search BM25] --> RRF
+    M[metadata.search] --> RRF
+    T[table.search] --> RRF
+    RRF[Reciprocal Rank Fusion] --> BO[metadataBoost ×]
+  end
+  BO --> DD[deduplicate by id]
+  DD --> RR[rerank · single pass]
+  RR --> TOP[top 8]
+  TOP --> PE[parent expansion]
+  PE --> OUT[context for prompt]
+            </div>
+
+            <h3 class="mt-10 text-lg font-semibold text-white">Ingestion architecture</h3>
+            <div class="mermaid mt-4">
+flowchart LR
+  UP[PDF upload] --> MAG[validate magic bytes]
+  MAG --> TXT[extract text · pdf-parse]
+  TXT --> TB[extract tables + unit hints]
+  TB --> MET[extract financial metrics]
+  TXT --> CH[smart chunks · section-aware]
+  CH --> EMB[batch embeddings · bge-small]
+  EMB --> UPS[batched upsert → Qdrant]
+  MET --> TX[(Prisma transaction)]
+  TB --> TX
+  CH --> TX
+  TX --> DONE([Document ready])
+  TX -. on failure .-> RB[compensating Qdrant delete]
+            </div>
+          </section>
+
+          <!-- 3. TECH STACK -->
+          <section id="stack" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">3 · Technology Stack</h2>
+            <p class="mt-4 text-slate-400">Every choice below is in the codebase. The "why" and "tradeoff" columns explain the decision, not just the label.</p>
+            <div class="mt-6 overflow-x-auto rounded-2xl border border-line">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-panel2 text-slate-300">
+                  <tr>
+                    <th class="px-4 py-3 font-semibold">Tech</th>
+                    <th class="px-4 py-3 font-semibold">Why chosen</th>
+                    <th class="px-4 py-3 font-semibold">Alternative / tradeoff</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-line text-slate-400">
+                  <tr><td class="px-4 py-3 font-medium text-white">Node + Express</td><td class="px-4 py-3">Same language as the frontend; first-class SSE streaming; tiny, unopinionated.</td><td class="px-4 py-3">NestJS (more structure, more ceremony); FastAPI (Python, but splits the stack).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">TypeScript</td><td class="px-4 py-3">Strict types across a data-shape-heavy retrieval pipeline catch payload bugs at compile time.</td><td class="px-4 py-3">Plain JS — faster to write, far costlier to maintain.</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Prisma + PostgreSQL</td><td class="px-4 py-3">Typed queries, migrations, relational integrity for chats/messages/documents/metrics.</td><td class="px-4 py-3">Raw SQL (more control, more boilerplate); Mongo (weaker relations for this data).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Qdrant</td><td class="px-4 py-3">Self-hostable via Docker, payload filtering + indexes, free, fast cosine search.</td><td class="px-4 py-3">Pinecone (managed, paid, vendor lock-in); pgvector (one less service, weaker hybrid).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Xenova Transformers</td><td class="px-4 py-3">Runs <code>bge-small-en-v1.5</code> (384-dim) locally — zero embedding cost, no API latency, full privacy.</td><td class="px-4 py-3">OpenAI embeddings (better quality, per-call cost + network); competes with the API process for CPU.</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Groq · Llama 3.3 70B</td><td class="px-4 py-3">Extremely fast token throughput — critical for a streaming UX; OpenAI-compatible SDK.</td><td class="px-4 py-3">GPT-4 class (stronger reasoning, slower, pricier); local LLM (no infra for 70B).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">SSE</td><td class="px-4 py-3">One-way token streaming over plain HTTP; trivial to proxy and auth.</td><td class="px-4 py-3">WebSockets (bidirectional, heavier); polling (latency + waste).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Next.js 16 / React 19</td><td class="px-4 py-3">App Router, server-side auth gating, streaming-friendly client.</td><td class="px-4 py-3">SPA + separate static host (more wiring, no SSR auth).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Clerk</td><td class="px-4 py-3">Drop-in auth on both client (middleware) and server (token verification); managed sessions.</td><td class="px-4 py-3">Roll-your-own JWT (more control, more risk).</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Zustand</td><td class="px-4 py-3">Minimal global store for chat state without Redux boilerplate.</td><td class="px-4 py-3">Context (re-render churn); Redux (overkill here).</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 4. USER JOURNEY -->
+          <section id="journey" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">4 · End-to-End User Journey</h2>
+            <p class="mt-4 text-slate-400">What actually happens when a user asks <span class="rounded bg-panel2 px-1.5 py-0.5 font-mono text-blue-300">"What is Reliance revenue?"</span></p>
+            <div class="mermaid mt-5">
+sequenceDiagram
+  participant U as User
+  participant FE as Frontend
+  participant API as Express (Clerk)
+  participant RET as Retrieval
+  participant QD as Qdrant
+  participant G as Groq
+  U->>FE: types question + Enter
+  FE->>API: POST /api/retrieval/chat (Bearer)
+  API->>API: protectRoute → userId
+  API->>API: getChatForUser (ownership)
+  API->>API: getRecentMessages(8) → memory
+  API->>API: rewriteQuery + analyzeQuery
+  API->>RET: retrieveRelevantChunks
+  RET->>QD: vector + keyword + metadata + table
+  QD-->>RET: candidates
+  RET->>RET: RRF → boost → dedupe → rerank → parent
+  RET-->>API: top-8 chunks
+  API->>API: build prompt (system+user)
+  API->>API: store user message
+  API->>G: streamLLMResponse
+  G-->>FE: SSE tokens (live)
+  API-->>FE: SSE done + sources
+  API->>API: (async) verify + log QueryLog
+            </div>
+            <ol class="mt-6 space-y-3 text-sm text-slate-400">
+              <li><strong class="text-white">1. Auth.</strong> Clerk middleware verifies the Bearer token; <code>protectRoute</code> sets <code>req.userId</code>.</li>
+              <li><strong class="text-white">2. Ownership.</strong> <code>getChatForUser</code> confirms the chat belongs to the user — no cross-tenant reads.</li>
+              <li><strong class="text-white">3. Memory.</strong> The last 8 messages are read; <code>extractConversationMemory</code> detects the active company ("reliance") and topics.</li>
+              <li><strong class="text-white">4. Rewrite + analyze.</strong> The query is rewritten to a standalone form; <code>analyzeQuery</code> tags it <code>FACT_LOOKUP</code>, section <code>financial highlights</code>, <code>wantsTables=true</code>.</li>
+              <li><strong class="text-white">5. Retrieve.</strong> Fact lookups skip multi-query; one hybrid search runs vector + BM25 + metadata + table in parallel, fused by RRF, boosted, deduped, reranked once, top-8, parent-expanded.</li>
+              <li><strong class="text-white">6. Prompt + stream.</strong> Sources wrapped in <code>&lt;source&gt;</code> tags; Groq streams tokens over SSE.</li>
+              <li><strong class="text-white">7. Persist + verify.</strong> User message stored before streaming; assistant message + sources after; verification and <code>QueryLog</code> run fire-and-forget.</li>
+            </ol>
+          </section>
+
+          <!-- 5. INGESTION -->
+          <section id="ingestion" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">5 · Ingestion Pipeline</h2>
+            <p class="mt-4 text-slate-400">Admin-only. Turns a raw PDF into searchable vectors plus structured tables/metrics. Each step earns its place — the "if removed" note is the test.</p>
+            <div class="mt-6 space-y-3">
+              <!-- step -->
+              <details class="group rounded-xl border border-line bg-panel" open>
+                <summary class="flex items-center gap-3 px-5 py-4">
+                  <svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                  <span class="font-semibold text-white">Upload & validation</span>
+                </summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400">
+                  Multer stores the PDF to disk (25 MB limit, mimetype filter). <code>pdf.service</code> reads it asynchronously and checks the <code>%PDF-</code> magic bytes. <span class="text-slate-300">If removed:</span> a spoofed mimetype could feed arbitrary bytes to the parser, and a sync read would block the event loop.
+                </div>
+              </details>
+              <details class="group rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4">
+                  <svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                  <span class="font-semibold text-white">Smart chunking (section-aware, parent-child)</span>
+                </summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400">
+                  Text is normalized <em>without destroying line breaks</em>, split into paragraphs, and grouped under detected financial section headings. Sections are built first, then chunked — so every child chunk carries the same complete parent-section text. <span class="text-slate-300">If removed:</span> retrieval returns sentence fragments with no surrounding context, and citations lose their section labels.
+                </div>
+              </details>
+              <details class="group rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4">
+                  <svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                  <span class="font-semibold text-white">Table & metric extraction</span>
+                </summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400">
+                  Line-oriented detection captures rows with ≥2 numeric tokens plus a unit hint (crore/lakh/million). Metric extraction maps row labels to canonical metrics (Revenue, EBITDA, EPS, Net Profit…), reads periods from header rows (FY24, Q1FY25), and normalizes values by unit. <span class="text-slate-300">If removed:</span> numeric questions degrade to prose search with no structured grounding.
+                </div>
+              </details>
+              <details class="group rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4">
+                  <svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                  <span class="font-semibold text-white">Embedding + storage (transactional)</span>
+                </summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400">
+                  Chunks are embedded in batches (bge-small, 384-dim) and upserted to Qdrant in batches of 100. A Prisma transaction then writes the Document, metrics, and tables. <span class="text-slate-300">If the DB write fails</span>, a compensating delete removes the just-inserted Qdrant points — keeping the two stores consistent. Duplicate filenames are rejected up front.
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <!-- 6. RETRIEVAL -->
+          <section id="retrieval" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">6 · Retrieval Pipeline (deep dive)</h2>
+            <p class="mt-4 text-slate-400">The heart of the system. Each stage lists input → output → why → tradeoff.</p>
+            <div class="mt-6 grid gap-4">
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Query rewriting</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> raw query + history → <span class="text-slate-300">Out:</span> standalone query. Resolves "their revenue", "that company". <span class="text-slate-300">Why:</span> follow-ups are unsearchable on their own. <span class="text-slate-300">Tradeoff:</span> one extra LLM call; skipped when there's no history; malformed output falls back to the original.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Multi-query generation</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> query → <span class="text-slate-300">Out:</span> up to 3 phrasings. <span class="text-slate-300">Why:</span> a single embedding misses lexically different but relevant chunks. <span class="text-slate-300">Tradeoff:</span> multiplies search cost, so it's gated to ANALYSIS/COMPARISON queries only; fact lookups search once.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Vector search</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> query (with BGE search prefix) → <span class="text-slate-300">Out:</span> ~20 semantically-nearest chunks. When the company is known, it filters natively in Qdrant. <span class="text-slate-300">Why:</span> captures meaning, not just keywords. <span class="text-slate-300">Tradeoff:</span> can miss exact numbers/identifiers — hence lexical search alongside.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Keyword search (BM25-lite)</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> query terms → <span class="text-slate-300">Out:</span> lexically-scored chunks with IDF + length normalization. Paginates the corpus (capped at 5,000, with a warning when hit). <span class="text-slate-300">Why:</span> exact terms ("EBITDA", "FY24") matter in finance. <span class="text-slate-300">Tradeoff:</span> scan-based — the long-term fix is Qdrant sparse vectors.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Metadata & table search</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">Metadata:</span> native Qdrant payload filter on <code>sectionTitle</code> (+company). <span class="text-slate-300">Table:</span> query-aware term overlap against table name/document/contents, company-restricted, top 3 — rendered row-by-row, never sliced mid-cell. <span class="text-slate-300">Why:</span> sends the model intact, relevant tables instead of arbitrary ones.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">RRF fusion</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> four ranked lists → <span class="text-slate-300">Out:</span> one fused ranking via <code>1/(k+rank)</code>. <span class="text-slate-300">Why:</span> the four rankers use <em>incomparable</em> score scales (cosine vs term counts); RRF fuses by rank, so no scale dominates. The fused score then stays canonical through the rest of the pipeline.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Reranking (single pass)</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> deduped candidates → <span class="text-slate-300">Out:</span> 0–100 scored, sorted. Blends normalized retrieval score (0.7) with query-term coverage (0.3), penalizing tiny fragments. Runs <em>once</em>, at the end. <span class="text-slate-300">Upgrade path:</span> a cross-encoder reranker.</p>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Parent expansion</h3>
+                <p class="mt-2 text-sm text-slate-400"><span class="text-slate-300">In:</span> top-8 chunks → <span class="text-slate-300">Out:</span> chunks enriched with their section context (parents deduped). <span class="text-slate-300">Why:</span> embed small for precision, answer with large for completeness — the parent-child pattern.</p>
+              </div>
+            </div>
+            <div class="mt-5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-sm text-blue-200">
+              <strong>Removed:</strong> a sentence-level <strong>context-compression</strong> stage once sat before the prompt. It was deleted because it severed numbers from their labels (dropping "₹2,35,000 crore" while keeping "Revenue grew") — unacceptable for financial accuracy. With only 8 sources, the context fits comfortably without it.
+            </div>
+          </section>
+
+          <!-- 7. FINANCIAL INTELLIGENCE -->
+          <section id="financial" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">7 · Financial Intelligence Layer</h2>
+            <p class="mt-4 text-slate-400">Financial RAG is harder than generic RAG, and the layer below reflects that.</p>
+            <div class="mt-5 rounded-2xl border border-line bg-panel2 p-5">
+              <h3 class="font-semibold text-white">Why financial RAG is hard</h3>
+              <ul class="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
+                <li>• <strong class="text-slate-300">Numbers are the answer</strong> — a dropped digit is a wrong answer, not a stylistic miss.</li>
+                <li>• <strong class="text-slate-300">Units differ</strong> — crore vs lakh vs million differ by 10⁷; mis-scaling is catastrophic.</li>
+                <li>• <strong class="text-slate-300">Periods matter</strong> — FY24 ≠ Q4FY24 ≠ CY2024; values must bind to the right period.</li>
+                <li>• <strong class="text-slate-300">Tables lose layout</strong> — PDF parsing flattens rows/columns that <em>are</em> the data.</li>
+                <li>• <strong class="text-slate-300">Hallucination is costly</strong> — a fabricated metric can mislead a real decision.</li>
+                <li>• <strong class="text-slate-300">Multi-entity</strong> — comparisons must not cross-contaminate companies.</li>
+              </ul>
+            </div>
+            <p class="mt-5 text-slate-400">The layer addresses these with: canonical <strong>metric mapping</strong> (Revenue/EBITDA/EPS/Net Profit/PBT…), <strong>period detection</strong> from header rows, <strong>unit normalization</strong> (EPS never scaled by table units), accounting-<strong>parentheses-as-negative</strong> parsing, company-restricted table retrieval, and a prompt that forbids un-sourced figures. Deterministic calculator helpers (growth, margin, CAGR) exist for a future tool-calling flow.</p>
+          </section>
+
+          <!-- 8. MEMORY -->
+          <section id="memory" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">8 · Conversation Memory</h2>
+            <p class="mt-4 text-slate-400">Memory is derived per request from the last 8 messages of <em>this</em> chat — no global state, no cross-user leakage.</p>
+            <div class="mt-5 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">What it tracks</h3>
+                <ul class="mt-3 space-y-2 text-sm text-slate-400">
+                  <li>• <strong class="text-slate-300">Company</strong> — most recent mention wins, biases retrieval filters/boosts.</li>
+                  <li>• <strong class="text-slate-300">Topics</strong> — risk, cash flow, margins, etc., used as soft boosts.</li>
+                </ul>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Multi-turn example</h3>
+                <div class="mt-3 space-y-1.5 font-mono text-xs text-slate-400">
+                  <p><span class="text-blue-300">U1:</span> Tell me about Reliance revenue</p>
+                  <p><span class="text-blue-300">U2:</span> What about <span class="text-amber-300">their</span> margins?</p>
+                  <p class="text-slate-500">→ rewritten: "Reliance operating margins"</p>
+                  <p class="text-slate-500">→ company memory = reliance, topic = profitability</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 9. PROMPTS -->
+          <section id="prompts" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">9 · Prompt Engineering</h2>
+            <p class="mt-4 text-slate-400">Prompts use a <strong>system/user split</strong>: stable rules live in the system message (better adherence, cache-friendly); only sources + question vary per call. The response shape adapts to the query type.</p>
+            <div class="mt-6 overflow-x-auto rounded-2xl border border-line">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-panel2 text-slate-300"><tr><th class="px-4 py-3">Query type</th><th class="px-4 py-3">Trigger</th><th class="px-4 py-3">Response style</th></tr></thead>
+                <tbody class="divide-y divide-line text-slate-400">
+                  <tr><td class="px-4 py-3 font-medium text-white">FACT_LOOKUP</td><td class="px-4 py-3">"what is", "how much"</td><td class="px-4 py-3">1–3 sentence direct answer, single search</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">COMPARISON</td><td class="px-4 py-3">"vs", "compare"</td><td class="px-4 py-3">Summary → differences → interpretation</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">SUMMARY</td><td class="px-4 py-3">"summarize", "brief"</td><td class="px-4 py-3">Executive bullet points</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">ANALYSIS</td><td class="px-4 py-3">default</td><td class="px-4 py-3">Summary → findings → financial interpretation</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-5 text-slate-400">Invariant rules in every system prompt: cite every claim as <code>[Source N]</code>; never invent figures; refuse with a fixed sentence when sources lack the answer; treat <code>&lt;source&gt;</code> content as <strong>data, not instructions</strong> (prompt-injection defense). Table rules and calculation formulas are appended only when relevant.</p>
+          </section>
+
+          <!-- 10. VERIFICATION -->
+          <section id="verification" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">10 · Verification Layer</h2>
+            <p class="mt-4 text-slate-400">After the answer streams, a second LLM call judges whether every claim is supported by the context, returning <code>SUPPORTED</code> / <code>UNSUPPORTED</code> / <code>UNKNOWN</code>.</p>
+            <div class="mt-5 grid gap-4 md:grid-cols-3">
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Why it exists</h3><p class="mt-2 text-sm text-slate-400">A safety net against hallucination — catches answers that drift from the evidence.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Key fix</h3><p class="mt-2 text-sm text-slate-400">The verdict parser checks <code>UNSUPPORTED</code> first — otherwise <code>"UNSUPPORTED".includes("SUPPORTED")</code> would pass everything.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Limitation</h3><p class="mt-2 text-sm text-slate-400">It runs <em>after</em> streaming (logged, not blocking), and the judge is the same model class — not independent ground truth.</p></div>
+            </div>
+            <p class="mt-5 text-slate-400"><strong class="text-white">Future:</strong> per-citation validation (every <code>[Source N]</code> must exist and support its sentence), and a cheaper/independent judge model.</p>
+          </section>
+
+          <!-- 11. STREAMING -->
+          <section id="streaming" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">11 · Streaming Architecture</h2>
+            <p class="mt-4 text-slate-400">Answers stream token-by-token over <strong>Server-Sent Events</strong>. The controller writes <code>data: {"token": "…"}</code> frames, then a final <code>data: {"done": true, "sources": […]}</code> frame; the client parses the buffer line-by-line.</p>
+            <div class="mt-6 overflow-x-auto rounded-2xl border border-line">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-panel2 text-slate-300"><tr><th class="px-4 py-3">Option</th><th class="px-4 py-3">Verdict</th><th class="px-4 py-3">Reasoning</th></tr></thead>
+                <tbody class="divide-y divide-line text-slate-400">
+                  <tr><td class="px-4 py-3 font-medium text-white">SSE</td><td class="px-4 py-3 text-emerald-400">Chosen</td><td class="px-4 py-3">One-way server→client is exactly the need; plain HTTP, easy to auth/proxy, auto-reconnect.</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">WebSockets</td><td class="px-4 py-3 text-slate-500">Rejected</td><td class="px-4 py-3">Bidirectional power we don't need; more infra, stateful connections.</td></tr>
+                  <tr><td class="px-4 py-3 font-medium text-white">Polling</td><td class="px-4 py-3 text-slate-500">Rejected</td><td class="px-4 py-3">Latency + wasted requests; no true streaming feel.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="mt-4 rounded-xl border border-line bg-panel2 p-4 text-sm text-slate-400">Sources are sent <strong>immediately</strong> after the token stream; verification runs afterward off the request path — so citations never wait behind a second LLM call.</div>
+          </section>
+
+          <!-- 12. DATABASE -->
+          <section id="database" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">12 · Database Design (PostgreSQL)</h2>
+            <div class="mermaid mt-5">
+erDiagram
+  USER ||--o{ CHAT : owns
+  CHAT ||--o{ MESSAGE : contains
+  DOCUMENT ||--o{ FINANCIAL_TABLE : has
+  DOCUMENT ||--o{ FINANCIAL_METRIC : has
+  USER {
+    string id PK
+    string email
+    Role role
+  }
+  CHAT {
+    string id PK
+    string title
+    string userId FK
+  }
+  MESSAGE {
+    string id PK
+    string role
+    string content
+    string chatId FK
+  }
+  DOCUMENT {
+    string id PK
+    string fileName
+    int chunksStored
+  }
+  FINANCIAL_TABLE {
+    string id PK
+    string tableName
+    json rawTable
+    string documentId FK
+  }
+  FINANCIAL_METRIC {
+    string id PK
+    string metricName
+    string period
+    float value
+    string unit
+    string documentId FK
+  }
+  QUERY_LOG {
+    string id PK
+    string originalQuery
+    int retrievalTimeMs
+    int generationTimeMs
+  }
+            </div>
+            <p class="mt-4 text-slate-400"><code>User → Chat → Message</code> is the conversation graph (cascade deletes). <code>Document → FinancialTable / FinancialMetric</code> is the structured-extraction graph. <code>QueryLog</code> is standalone observability (retrieval/generation latency per request). The vector chunks themselves live in Qdrant, linked back by <code>documentId</code>.</p>
+          </section>
+
+          <!-- 13. QDRANT -->
+          <section id="qdrant" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">13 · Qdrant Design</h2>
+            <p class="mt-4 text-slate-400">A single collection <code>financial_docs</code>, 384-dim cosine. Each point's payload carries everything retrieval and the UI need.</p>
+            <div class="mt-5 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Payload fields</h3>
+                <ul class="mt-3 space-y-1.5 font-mono text-xs text-slate-400">
+                  <li>documentId, documentName</li>
+                  <li>text, chunkIndex</li>
+                  <li>companyName <span class="text-slate-600">// indexed</span></li>
+                  <li>sectionTitle <span class="text-slate-600">// indexed</span></li>
+                  <li>parentId, parentText</li>
+                </ul>
+              </div>
+              <div class="rounded-2xl border border-line bg-panel p-5">
+                <h3 class="font-semibold text-white">Payload indexes</h3>
+                <p class="mt-3 text-sm text-slate-400">Created at startup on <code>documentId</code>, <code>companyName</code>, <code>sectionTitle</code> — so filtered search, company-scoped retrieval, and delete-by-document avoid full scans.</p>
+              </div>
+            </div>
+            <div class="mermaid mt-5">
+flowchart LR
+  Q[query embedding] --> S{company known?}
+  S -- yes --> F["search + filter:<br/>companyName = X"]
+  S -- no --> A[search unfiltered]
+  F --> R[top-k points]
+  A --> R
+  R --> MAP[map payload → RetrievedChunk]
+            </div>
+          </section>
+
+          <!-- 14. TRADEOFFS -->
+          <section id="tradeoffs" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">14 · Tradeoffs & Engineering Decisions</h2>
+            <div class="mt-6 space-y-3">
+              <details class="rounded-xl border border-line bg-panel" open>
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Hybrid search vs vector-only</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Chose hybrid.</strong> Vector-only misses exact tokens (tickers, "EBITDA", "FY24"); lexical-only misses paraphrase. <strong>Downside:</strong> more moving parts and a scan-based lexical stage until sparse vectors land.</div>
+              </details>
+              <details class="rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Qdrant vs Pinecone</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Chose Qdrant.</strong> Self-hosted (Docker), free, payload filtering + indexes, no vendor lock-in. <strong>Downside:</strong> you operate it yourself; no managed SLA.</div>
+              </details>
+              <details class="rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Groq vs OpenAI</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Chose Groq (Llama 3.3 70B).</strong> Token throughput makes streaming feel instant; OpenAI-compatible SDK. <strong>Downside:</strong> reasoning ceiling below GPT-4 class on the hardest analytical prompts.</div>
+              </details>
+              <details class="rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Local embeddings vs API embeddings</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Chose local (Xenova bge-small).</strong> Zero cost, no network latency, full privacy. <strong>Downside:</strong> lower quality than top API models, and embedding competes with the API process for CPU (a worker/queue is the fix).</div>
+              </details>
+              <details class="rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Parent-child retrieval vs large chunks</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Chose parent-child.</strong> Embed small for precise matching, answer with the parent section for completeness. <strong>Downside:</strong> parent text is duplicated in payloads today (a docstore keyed by parentId is the cleaner design).</div>
+              </details>
+              <details class="rounded-xl border border-line bg-panel">
+                <summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-semibold text-white">Dropping context compression</span></summary>
+                <div class="border-t border-line px-5 py-4 text-sm text-slate-400"><strong>Removed it.</strong> Sentence-filtering severed figures from their labels — fatal for financial accuracy. With 8 sources the context fits without compression. <strong>Downside:</strong> slightly larger prompts; acceptable for a 70B context window.</div>
+              </details>
+            </div>
+          </section>
+
+          <!-- 15. PRODUCTION CHALLENGES -->
+          <section id="challenges" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">15 · Production Challenges</h2>
+            <div class="mt-6 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Citation reliability</h3><p class="mt-2 text-sm text-slate-400">Prompt-enforced <code>[Source N]</code> + delimited sources; verification flags drift. Open: per-citation validation.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Table retrieval</h3><p class="mt-2 text-sm text-slate-400">Made query- and company-aware after an early version injected arbitrary tables at max score.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Cross-document contamination</h3><p class="mt-2 text-sm text-slate-400">Company filtering in Qdrant + company-restricted tables prevent mixing one filer's numbers into another's answer.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Hallucination reduction</h3><p class="mt-2 text-sm text-slate-400">"Answer only from sources" + fixed refusal sentence + verification pass.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Memory isolation</h3><p class="mt-2 text-sm text-slate-400">Moved from a module-level variable (cross-user leak) to request-local derivation.</p></div>
+              <div class="rounded-2xl border border-line bg-panel p-5"><h3 class="font-semibold text-white">Prompt-size control</h3><p class="mt-2 text-sm text-slate-400">Capped sources (8), gated multi-query, removed compression, length-limited history in rewriting.</p></div>
+            </div>
+          </section>
+
+          <!-- 16. LIMITATIONS -->
+          <section id="limitations" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">16 · Known Limitations</h2>
+            <p class="mt-4 text-slate-400">Honest accounting of where the system is weak today.</p>
+            <ul class="mt-5 space-y-3 text-sm text-slate-400">
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">Synchronous ingestion.</strong> Large PDFs are processed inside the request — no job queue, no progress, risk of timeouts. The single biggest scalability gap.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">Scan-based lexical search.</strong> BM25-lite paginates the corpus (capped 5k). Recall degrades on very large corpora until Qdrant sparse vectors replace it.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">PDF table extraction is best-effort.</strong> pdf-parse flattens layout; complex tables lose structure. Layout-aware parsing is the real fix.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">Heuristic reranker.</strong> Keyword-coverage blend, not a cross-encoder — the highest-leverage retrieval-quality upgrade remaining.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">No retrieval evals.</strong> No golden question set / recall@k harness yet — quality changes are not yet measured.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">LLM arithmetic.</strong> Calculations rely on the model; deterministic calculators exist but aren't yet wired via tool-calling.</li>
+              <li class="rounded-xl border border-line bg-panel p-4"><strong class="text-white">No rate limiting.</strong> Chat endpoints aren't throttled yet — a cost/DoS exposure.</li>
+            </ul>
+          </section>
+
+          <!-- 17. ROADMAP -->
+          <section id="roadmap" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">17 · Future Roadmap</h2>
+            <div class="mt-6 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border border-red-500/30 bg-red-500/5 p-5"><h3 class="font-semibold text-red-300">P0 · Critical</h3><ul class="mt-3 space-y-1.5 text-sm text-slate-400"><li>• Rate limiting + per-user quotas</li><li>• Async ingestion (queue + status)</li><li>• Retrieval eval harness (recall@k)</li></ul></div>
+              <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5"><h3 class="font-semibold text-amber-300">P1 · Retrieval</h3><ul class="mt-3 space-y-1.5 text-sm text-slate-400"><li>• Qdrant sparse vectors (true BM25)</li><li>• Cross-encoder reranker</li><li>• Per-citation validation</li></ul></div>
+              <div class="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5"><h3 class="font-semibold text-blue-300">P2 · Scalability</h3><ul class="mt-3 space-y-1.5 text-sm text-slate-400"><li>• Parent docstore (de-dupe payloads)</li><li>• Embedding cache + worker process</li><li>• Layout-aware PDF parsing</li></ul></div>
+              <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5"><h3 class="font-semibold text-emerald-300">P3 · Enterprise</h3><ul class="mt-3 space-y-1.5 text-sm text-slate-400"><li>• Tool-calling numeric reasoning</li><li>• Per-tenant document permissions</li><li>• Audit trails & usage dashboards</li></ul></div>
+            </div>
+          </section>
+
+          <!-- 18. INTERVIEW GUIDE -->
+          <section id="interview" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">18 · Interview Discussion Guide</h2>
+            <p class="mt-4 text-slate-400">How to present this project and the questions to expect.</p>
+            <div class="mt-5 rounded-2xl border border-line bg-panel2 p-5">
+              <h3 class="font-semibold text-white">The 60-second pitch</h3>
+              <p class="mt-2 text-sm text-slate-400">"A financial document Q&A system. The interesting engineering isn't the LLM call — it's the retrieval pipeline: four rankers (dense, lexical, metadata, table) fused with Reciprocal Rank Fusion so incomparable score scales don't fight, then a single rerank and parent-child expansion. Answers stream over SSE with citations and a verification pass, and the whole thing runs local-first — on-device embeddings and a self-hosted vector DB."</p>
+            </div>
+            <h3 class="mt-8 font-semibold text-white">Expected questions & answers</h3>
+            <div class="mt-4 space-y-3">
+              <details class="rounded-xl border border-line bg-panel"><summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-medium text-white">Why RRF instead of weighting scores?</span></summary><div class="border-t border-line px-5 py-4 text-sm text-slate-400">Because cosine similarity (0–1) and term frequency (unbounded ints) aren't comparable — adding or weighting them lets one scale dominate. RRF fuses by <em>rank</em>, which is scale-free, and the fused score then stays canonical so later boosts don't reintroduce the problem.</div></details>
+              <details class="rounded-xl border border-line bg-panel"><summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-medium text-white">How do you stop cross-company contamination?</span></summary><div class="border-t border-line px-5 py-4 text-sm text-slate-400">Company is detected per request and used as a native Qdrant filter (not a post-hoc boost — a boost can't recover chunks that never made the candidate list), and table retrieval is company-restricted.</div></details>
+              <details class="rounded-xl border border-line bg-panel"><summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-medium text-white">What's the biggest weakness?</span></summary><div class="border-t border-line px-5 py-4 text-sm text-slate-400">Synchronous ingestion and the lack of a retrieval eval harness. I can articulate the fix for both (queue; recall@k golden set) — showing I know the difference between a demo and production.</div></details>
+              <details class="rounded-xl border border-line bg-panel"><summary class="flex items-center gap-3 px-5 py-4"><svg class="chev text-slate-500 transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><span class="font-medium text-white">Why is financial RAG harder?</span></summary><div class="border-t border-line px-5 py-4 text-sm text-slate-400">Numbers are the answer, units differ by 10⁷, values bind to periods, and tables lose layout in PDF parsing — so the system needs unit normalization, period detection, and intact table rendering, not just semantic search.</div></details>
+            </div>
+            <div class="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200"><strong>What impresses:</strong> RRF done correctly, parent-child retrieval, prompt-injection hardening on sources, compensating transactions in ingestion, and honesty about limitations with concrete fixes.</div>
+          </section>
+
+          <!-- 19. CODEBASE MAP -->
+          <section id="codebase" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">19 · Codebase Map</h2>
+            <div class="mt-5 overflow-x-auto rounded-2xl border border-line bg-panel2 p-5">
+<pre class="font-mono text-xs leading-6 text-slate-400">financial-rag/
+├─ <span class="text-blue-300">server/</span>                      Express + TypeScript API
+│  ├─ src/
+│  │  ├─ app.ts                 cors · json · clerk · routes · error handler
+│  │  ├─ server.ts              bootstrap · collection init · graceful shutdown
+│  │  ├─ <span class="text-emerald-300">config/</span>               prisma client · structured logger
+│  │  ├─ <span class="text-emerald-300">middleware/</span>           protectRoute · requireAdmin · multer upload
+│  │  ├─ <span class="text-emerald-300">modules/</span>
+│  │  │  ├─ ingestion/          upload → chunk → embed → store
+│  │  │  ├─ retrieval/          controller · service · search/ · utils/
+│  │  │  ├─ memory/             chats, messages, query rewrite
+│  │  │  ├─ llm/                Groq client (system/user, streaming)
+│  │  │  ├─ admin/              dashboard metrics · document mgmt
+│  │  │  ├─ documents/          read-only document inventory
+│  │  │  ├─ qdrant/             client · collection + payload indexes
+│  │  │  └─ auth/               ensureUserExists (upsert)
+│  │  └─ <span class="text-emerald-300">services/</span>             pdf · smartChunk · embedding · tableExtraction
+│  │                           · metricExtraction · prompt · multiQuery
+│  │                           · parentExpansion · answerVerification
+│  └─ prisma/schema.prisma      Chat · Message · Document · User · QueryLog
+│                               · FinancialTable · FinancialMetric
+├─ <span class="text-blue-300">client/</span>                      Next.js 16 · React 19
+│  ├─ app/                      page (chat) · admin/ · docs · auth · proxy.ts
+│  ├─ components/chat/          ChatContainer · Sidebar · MessageList · …
+│  ├─ components/admin/         AdminGuard · MetricCard · UploadBox
+│  ├─ store/                    Zustand chat store
+│  └─ services/                 api · chat (SSE) · admin
+└─ docker-compose.yml           Qdrant</pre>
+            </div>
+          </section>
+
+          <!-- 20. GLOSSARY -->
+          <section id="glossary" class="content-section mt-16">
+            <h2 class="text-2xl font-bold text-white">20 · Appendix · Glossary</h2>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">RAG</dt><dd class="mt-1 text-sm text-slate-400">Retrieval-Augmented Generation — fetch relevant evidence, then let the LLM answer from it.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Embedding</dt><dd class="mt-1 text-sm text-slate-400">A vector capturing a text's meaning, so similar texts sit close in vector space.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Vector search</dt><dd class="mt-1 text-sm text-slate-400">Finding the nearest embeddings to a query embedding (cosine distance here).</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">RRF</dt><dd class="mt-1 text-sm text-slate-400">Reciprocal Rank Fusion — merges multiple ranked lists by rank, not by raw score.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Reranking</dt><dd class="mt-1 text-sm text-slate-400">A second-pass scoring of candidates to sharpen the final order.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Chunking</dt><dd class="mt-1 text-sm text-slate-400">Splitting documents into retrievable pieces; here, section-aware with parent context.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Metadata filtering</dt><dd class="mt-1 text-sm text-slate-400">Restricting search by payload fields (company, section) via indexed filters.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">SSE</dt><dd class="mt-1 text-sm text-slate-400">Server-Sent Events — a one-way HTTP stream of server→client messages.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Context compression</dt><dd class="mt-1 text-sm text-slate-400">Trimming retrieved text before the prompt. <em>Removed here</em> — it cut numbers from labels.</dd></div>
+              <div class="rounded-xl border border-line bg-panel p-4"><dt class="font-semibold text-white">Parent-child retrieval</dt><dd class="mt-1 text-sm text-slate-400">Match on small chunks, answer with their larger parent section.</dd></div>
+            </div>
+          </section>
+
+          <footer class="mt-20 border-t border-line pt-8 text-sm text-slate-500">
+            <p>Financial RAG — engineering documentation. Generated from the live codebase; describes the system as actually implemented.</p>
+            <p class="mt-2">Embeddings: Xenova bge-small-en-v1.5 (local) · Vectors: Qdrant · LLM: Groq Llama 3.3 70B · Auth: Clerk.</p>
+          </footer>
+        </div>
+      </main>
+    </div>
+
+    <!-- ===================== MERMAID ===================== -->
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "dark",
+        themeVariables: {
+          background: "#0c1322",
+          primaryColor: "#16223a",
+          primaryTextColor: "#e2e8f0",
+          primaryBorderColor: "#2b3b59",
+          lineColor: "#3b82f6",
+          fontFamily: "Inter, sans-serif",
+        },
+      });
+    </script>
+
+    <!-- ===================== APP JS ===================== -->
+    <script>
+      // Build sidebar nav from sections
+      const sections = [
+        ["overview", "Overview"],
+        ["summary", "1 · Executive Summary"],
+        ["architecture", "2 · Architecture"],
+        ["stack", "3 · Technology Stack"],
+        ["journey", "4 · User Journey"],
+        ["ingestion", "5 · Ingestion Pipeline"],
+        ["retrieval", "6 · Retrieval Pipeline"],
+        ["financial", "7 · Financial Intelligence"],
+        ["memory", "8 · Conversation Memory"],
+        ["prompts", "9 · Prompt Engineering"],
+        ["verification", "10 · Verification"],
+        ["streaming", "11 · Streaming (SSE)"],
+        ["database", "12 · Database Design"],
+        ["qdrant", "13 · Qdrant Design"],
+        ["tradeoffs", "14 · Tradeoffs"],
+        ["challenges", "15 · Production Challenges"],
+        ["limitations", "16 · Known Limitations"],
+        ["roadmap", "17 · Roadmap"],
+        ["interview", "18 · Interview Guide"],
+        ["codebase", "19 · Codebase Map"],
+        ["glossary", "20 · Glossary"],
+      ];
+
+      const nav = document.getElementById("nav");
+      nav.innerHTML = sections
+        .map(
+          ([id, label]) =>
+            `<a href="#${id}" data-id="${id}" class="nav-link block rounded-lg border border-transparent px-3 py-2 text-slate-400 hover:bg-panel2 hover:text-slate-200" data-label="${label.toLowerCase()}">${label}</a>`,
+        )
+        .join("");
+
+      const links = Array.from(document.querySelectorAll(".nav-link"));
+
+      // Search filter (sidebar)
+      const search = document.getElementById("search");
+      search.addEventListener("input", (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        links.forEach((l) => {
+          const match = !q || l.dataset.label.includes(q);
+          l.style.display = match ? "" : "none";
+        });
+      });
+
+      // Active section highlight on scroll
+      const byId = Object.fromEntries(links.map((l) => [l.dataset.id, l]));
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              links.forEach((l) => l.classList.remove("active"));
+              const link = byId[entry.target.id];
+              if (link) link.classList.add("active");
+            }
+          });
+        },
+        { rootMargin: "-20% 0px -70% 0px" },
+      );
+      document
+        .querySelectorAll(".content-section")
+        .forEach((s) => observer.observe(s));
+
+      // Mobile sidebar toggle
+      const sidebar = document.getElementById("sidebar");
+      const backdrop = document.getElementById("backdrop");
+      const menuBtn = document.getElementById("menuBtn");
+      const openNav = () => {
+        sidebar.classList.remove("-translate-x-full");
+        backdrop.classList.remove("hidden");
+      };
+      const closeNav = () => {
+        sidebar.classList.add("-translate-x-full");
+        backdrop.classList.add("hidden");
+      };
+      menuBtn.addEventListener("click", openNav);
+      backdrop.addEventListener("click", closeNav);
+      nav.addEventListener("click", (e) => {
+        if (e.target.closest("a") && window.innerWidth < 1024) closeNav();
+      });
+    </script>
+  </body>
+</html>

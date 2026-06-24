@@ -3,10 +3,23 @@ import { QueryType } from "../modules/retrieval/utils/queryAnalyzer";
 
 const RESPONSE_STYLES: Record<QueryType, string> = {
   FACT_LOOKUP: `Respond with a concise factual answer (1-3 sentences), focused only on the requested fact.`,
-  COMPARISON: `Structure the response as:
+  COMPARISON: `Compare the companies side by side using ONLY sourced figures.
+Structure the response as:
 ## Comparison Summary
-## Key Differences (bullet points)
-## Financial Interpretation`,
+A short framing of what is being compared.
+## Side-by-Side
+Compare across the financial dimensions the sources support (e.g. revenue,
+profitability/margins, growth, debt/leverage, cash flow). Use a markdown table
+when the data allows, one column per company. Cite every figure [Source N].
+## Key Differences
+Bullet points highlighting the most material differences.
+## Financial Interpretation
+What the numbers suggest about each company's performance and risk profile.
+RULES FOR COMPARISONS:
+- If the sources lack data for a company or dimension, state that explicitly
+  instead of guessing or leaving it blank.
+- Do NOT give a definitive buy/sell/"which is better" verdict. Present the
+  evidence and trade-offs and let the reader decide.`,
   SUMMARY: `Respond as "## Executive Summary" with concise bullet points of the most important information.`,
   ANALYSIS: `Structure the response as:
 ## Summary (short direct answer)

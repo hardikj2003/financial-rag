@@ -45,4 +45,19 @@ describe("analyzeQuery", () => {
   it("returns no section intent for generic queries", () => {
     expect(analyzeQuery("tell me about the company").sectionIntent).toBeNull();
   });
+
+  it("treats 2+ companies as a comparison even without a keyword", () => {
+    const a = analyzeQuery(
+      "if i have to choose between reliance and sbi to invest, which one?",
+    );
+    expect(a.type).toBe("COMPARISON");
+    expect(a.companies).toEqual(["reliance", "sbi"]);
+  });
+
+  it("flags investment/advice intent", () => {
+    expect(analyzeQuery("should i invest in reliance or sbi").isAdvice).toBe(
+      true,
+    );
+    expect(analyzeQuery("what was reliance revenue").isAdvice).toBe(false);
+  });
 });

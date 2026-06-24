@@ -76,3 +76,152 @@ model FinancialMetric {
   unit       String?
   createdAt  DateTime @default(now())
 }
+
+// ============================================================
+// Observability / Tracing
+// One QueryTrace per chat request, with child traces per stage.
+// Scalar columns power aggregate dashboards; JSON columns hold the
+// detail needed to replay a query end-to-end.
+// ============================================================
+
+model QueryTrace {
+  id     String  @id @default(uuid())
+  chatId String?
+  userId String?
+
+  originalQuery   String
+  rewrittenQuery  String?
+  generatedQueries String[]
+  queryType       String?
+  companies       String[]
+  isComparison    Boolean @default(false)
+  isAdvice        Boolean @default(false)
+
+  // Latency (ms)
+  totalMs        Int?
+  retrievalMs    Int?
+  generationMs   Int?
+  verificationMs Int?
+
+  // Sizes
+  candidateCount   Int?
+  finalSourceCount Int?
+  citedSourceCount Int?
+  contextChars     Int?
+  promptChars      Int?
+  estInputTokens   Int?
+  estOutputTokens  Int?
+  estCostUsd       Float?
+
+  // Quality
+  avgRetrievalScore Float?
+  avgRerankScore    Float?
+  citationCoverage  Float?
+  verification      String? // SUPPORTED | UNSUPPORTED | UNKNOWN | DISABLED
+  answerLength      Int?
+
+  // Outcome
+  status      String  @default("ok") // ok | error | rate_limited
+  failureType String? // none | no_results | empty_context | verification_failed | rate_limited | stream_failed | timeout
+  errorMessage String?
+  model       String?
+
+  // Memory snapshot
+  memoryCompany String?
+  memoryTopics  String[]
+
+  createdAt DateTime @default(now())
+
+  retrievals   RetrievalTrace[]
+  fusion       FusionTrace?
+  rerank       RerankTrace?
+  prompt       PromptTrace?
+  llm          LLMTrace?
+  verificationTrace VerificationTrace?
+  metricTrace  MetricTrace?
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model RetrievalTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  retriever    String // vector | keyword | metadata | table
+  searchQuery  String?
+  company      String?
+  resultCount  Int        @default(0)
+  results      Json // [{ id, documentName, score, companyName, sectionTitle }]
+  createdAt    DateTime   @default(now())
+
+  @@index([queryTraceId])
+}
+
+model FusionTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  beforeCount  Int        @default(0)
+  afterCount   Int        @default(0)
+  items        Json // [{ id, documentName, ranks: {vector,keyword,...}, fusionScore }]
+  createdAt    DateTime   @default(now())
+}
+
+model RerankTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  beforeCount  Int        @default(0)
+  afterCount   Int        @default(0)
+  items        Json // [{ id, documentName, beforeScore, afterScore, movement }]
+  createdAt    DateTime   @default(now())
+}
+
+model PromptTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  systemPrompt String
+  context      String
+  finalPrompt  String
+  chars        Int        @default(0)
+  estTokens    Int        @default(0)
+  createdAt    DateTime   @default(now())
+}
+
+model LLMTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  model        String
+  inputTokens  Int        @default(0)
+  outputTokens Int        @default(0)
+  totalTokens  Int        @default(0)
+  latencyMs    Int        @default(0)
+  streamMs     Int        @default(0)
+  costUsd      Float      @default(0)
+  createdAt    DateTime   @default(now())
+}
+
+model VerificationTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  verdict      String // SUPPORTED | UNSUPPORTED | UNKNOWN | DISABLED
+  citedSources Int        @default(0)
+  totalSources Int        @default(0)
+  evidence     Json // [{ sourceId, documentName, cited }]
+  createdAt    DateTime   @default(now())
+}
+
+model MetricTrace {
+  id           String     @id @default(uuid())
+  queryTraceId String     @unique
+  trace        QueryTrace @relation(fields: [queryTraceId], references: [id], onDelete: Cascade)
+  companies    String[]
+  topics       String[]
+  metrics      String[]
+  createdAt    DateTime   @default(now())
+}
