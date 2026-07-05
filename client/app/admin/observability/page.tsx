@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
-import { Activity, ArrowRight } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Server,
+  Compass,
+  ShieldAlert,
+} from "lucide-react";
 import {
   getSummary,
   getTimeseries,
@@ -39,7 +45,7 @@ export default function ObservabilityOverview() {
         setSummary(s);
         setSeries(ts);
       } catch {
-        setError("Failed to load observability metrics.");
+        setError("Telemetry network sync timeout.");
       } finally {
         setLoading(false);
       }
@@ -47,128 +53,228 @@ export default function ObservabilityOverview() {
     load();
   }, [getToken]);
 
-  if (loading) {
-    return <DarkShell><p className="text-slate-500">Loading telemetry…</p></DarkShell>;
-  }
-  if (error || !summary) {
-    return <DarkShell><p className="text-red-400">{error ?? "No data."}</p></DarkShell>;
-  }
+  if (loading)
+    return (
+      <DarkShell>
+        <div className="flex h-40 items-center justify-center text-xs text-slate-500 animate-pulse font-mono">
+          Aggregating engine telemetry arrays…
+        </div>
+      </DarkShell>
+    );
+  if (error || !summary)
+    return (
+      <DarkShell>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-400 font-mono">
+          {error ?? "Telemetry offline."}
+        </div>
+      </DarkShell>
+    );
 
   const { usage, ai, quality, financial, failures } = summary;
 
   return (
     <DarkShell>
-      <div className="flex items-center justify-between">
+      {/* Overview Metric Topbar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-900 pb-5">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-white">
-            <Activity size={20} className="text-blue-400" />
-            RAG Observability
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
+            <Activity size={18} className="text-blue-500" /> RAG System
+            Telemetry
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Live telemetry from the retrieval pipeline · last 30 days
+            Real-time verification metrics and search execution patterns across
+            the final 30-day index
           </p>
         </div>
         <Link
           href="/admin/observability/traces"
-          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-blue-500/50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-all hover:bg-slate-900 hover:text-white"
         >
-          Query Traces <ArrowRight size={14} />
+          Inspect Real-time Traces <ArrowRight size={14} />
         </Link>
       </div>
 
-      {/* Usage */}
-      <Section title="Usage">
-        <StatCard label="Total Queries" value={fmtNum(usage.totalQueries)} />
-        <StatCard label="Total Chats" value={fmtNum(usage.totalChats)} />
-        <StatCard label="Active Users" value={fmtNum(usage.activeUsers)} hint="30d" />
-        <StatCard label="Today" value={fmtNum(usage.dailyQueries)} />
-        <StatCard label="This Week" value={fmtNum(usage.weeklyQueries)} />
-        <StatCard label="This Month" value={fmtNum(usage.monthlyQueries)} />
-      </Section>
+      {/* Metrics Core Grid */}
+      <div className="space-y-6">
+        <Section title="Load Context" icon={<Server size={12} />}>
+          <StatCard
+            label="Total Core Queries"
+            value={fmtNum(usage.totalQueries)}
+          />
+          <StatCard
+            label="Total Context Chats"
+            value={fmtNum(usage.totalChats)}
+          />
+          <StatCard
+            label="Active Direct Users"
+            value={fmtNum(usage.activeUsers)}
+            hint="30d loop"
+          />
+          <StatCard label="Today" value={fmtNum(usage.dailyQueries)} />
+          <StatCard label="Rolling Week" value={fmtNum(usage.weeklyQueries)} />
+          <StatCard
+            label="Rolling Month"
+            value={fmtNum(usage.monthlyQueries)}
+          />
+        </Section>
 
-      {/* AI */}
-      <Section title="AI Performance">
-        <StatCard label="Retrieval Latency" value={fmtMs(ai.avgRetrievalMs)} accent="blue" />
-        <StatCard label="Generation Latency" value={fmtMs(ai.avgGenerationMs)} accent="blue" />
-        <StatCard label="End-to-End" value={fmtMs(ai.avgEndToEndMs)} accent="blue" />
-        <StatCard label="Sources Retrieved" value={ai.avgSourcesRetrieved} hint="avg candidates" />
-        <StatCard label="Sources Used" value={ai.avgSourcesUsed} hint="avg final" />
-        <StatCard label="Est. Cost (30d)" value={fmtCost(ai.totalCostUsd)} accent="amber" />
-      </Section>
+        <Section title="Inference Performance" icon={<Compass size={12} />}>
+          <StatCard
+            label="Retrieval Wall-Time"
+            value={fmtMs(ai.avgRetrievalMs)}
+            accent="blue"
+          />
+          <StatCard
+            label="Generation Wall-Time"
+            value={fmtMs(ai.avgGenerationMs)}
+            accent="blue"
+          />
+          <StatCard
+            label="End-to-End Latency"
+            value={fmtMs(ai.avgEndToEndMs)}
+            accent="blue"
+          />
+          <StatCard
+            label="Avg Source Pool"
+            value={ai.avgSourcesRetrieved}
+            hint="candidates"
+          />
+          <StatCard
+            label="Avg Source Match"
+            value={ai.avgSourcesUsed}
+            hint="injected"
+          />
+          <StatCard
+            label="Est. Total Cost (30d)"
+            value={fmtCost(ai.totalCostUsd)}
+            accent="amber"
+          />
+        </Section>
 
-      {/* Quality */}
-      <Section title="Quality">
-        <StatCard
-          label="Verification Rate"
-          value={fmtPct(quality.verificationSuccessRate)}
-          accent="emerald"
-        />
-        <StatCard
-          label="Unsupported Rate"
-          value={fmtPct(quality.unsupportedRate)}
-          accent={quality.unsupportedRate > 0.2 ? "red" : "emerald"}
-        />
-        <StatCard label="Citation Coverage" value={fmtPct(quality.citationCoverage)} />
-        <StatCard label="Retrieval Hit Rate" value={fmtPct(quality.retrievalHitRate)} />
-        <StatCard label="Avg Rerank Score" value={quality.avgRerankScore} />
-        <StatCard label="Avg Answer Length" value={fmtNum(quality.avgAnswerLength)} hint="chars" />
-      </Section>
+        <Section
+          title="Retrieval Pipeline Accuracy"
+          icon={<ShieldAlert size={12} />}
+        >
+          <StatCard
+            label="Verification Success"
+            value={fmtPct(quality.verificationSuccessRate)}
+            accent="emerald"
+          />
+          <StatCard
+            label="Unsupported Boundary"
+            value={fmtPct(quality.unsupportedRate)}
+            accent={quality.unsupportedRate > 0.2 ? "red" : "emerald"}
+          />
+          <StatCard
+            label="Citation Mapping"
+            value={fmtPct(quality.citationCoverage)}
+          />
+          <StatCard
+            label="Retrieval Hit Rate"
+            value={fmtPct(quality.retrievalHitRate)}
+          />
+          <StatCard
+            label="Avg Cross-Rerank Score"
+            value={quality.avgRerankScore}
+          />
+          <StatCard
+            label="Avg Generation Length"
+            value={fmtNum(quality.avgAnswerLength)}
+            hint="characters"
+          />
+        </Section>
+      </div>
 
-      {/* Trends */}
+      {/* Analytics Data Trends Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Query Volume (14d)">
-          <LineChart
-            data={series.map((p) => ({ label: p.day.slice(5), value: p.queries }))}
-            stroke="#3b82f6"
-          />
+        <Panel title="Query Traversal Volume (14d)">
+          <div className="pt-2">
+            <LineChart
+              data={series.map((p) => ({
+                label: p.day.slice(5),
+                value: p.queries,
+              }))}
+              stroke="#3b82f6"
+            />
+          </div>
         </Panel>
-        <Panel title="End-to-End Latency (14d)">
-          <LineChart
-            data={series.map((p) => ({ label: p.day.slice(5), value: p.avgLatencyMs }))}
-            stroke="#22d3ee"
-            format={(n) => fmtMs(n)}
-          />
+        <Panel title="Mean End-to-End Latency (14d)">
+          <div className="pt-2">
+            <LineChart
+              data={series.map((p) => ({
+                label: p.day.slice(5),
+                value: p.avgLatencyMs,
+              }))}
+              stroke="#22d3ee"
+              format={(n) => fmtMs(n)}
+            />
+          </div>
         </Panel>
-        <Panel title="Verification Rate (14d)">
-          <LineChart
-            data={series.map((p) => ({ label: p.day.slice(5), value: p.verificationRate }))}
-            stroke="#34d399"
-            format={(n) => `${(n * 100).toFixed(0)}%`}
-          />
+        <Panel title="Deterministic Verification Success Rate (14d)">
+          <div className="pt-2">
+            <LineChart
+              data={series.map((p) => ({
+                label: p.day.slice(5),
+                value: p.verificationRate,
+              }))}
+              stroke="#34d399"
+              format={(n) => `${(n * 100).toFixed(0)}%`}
+            />
+          </div>
         </Panel>
-        <Panel title="Citation Coverage (14d)">
-          <LineChart
-            data={series.map((p) => ({ label: p.day.slice(5), value: p.citationCoverage }))}
-            stroke="#a78bfa"
-            format={(n) => `${(n * 100).toFixed(0)}%`}
-          />
+        <Panel title="Context Citation Coverage (14d)">
+          <div className="pt-2">
+            <LineChart
+              data={series.map((p) => ({
+                label: p.day.slice(5),
+                value: p.citationCoverage,
+              }))}
+              stroke="#a78bfa"
+              format={(n) => `${(n * 100).toFixed(0)}%`}
+            />
+          </div>
         </Panel>
       </div>
 
-      {/* Financial + failures */}
+      {/* Distribution Categorization */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Most Queried Companies">
-          <BarList
-            data={financial.topCompanies.map((c) => ({ label: c.name, value: c.count }))}
-          />
-        </Panel>
-        <Panel title="Most Queried Topics">
-          <BarList
-            data={financial.topTopics.map((t) => ({ label: t.name, value: t.count }))}
-            color="bg-violet-500"
-          />
-        </Panel>
-        <Panel title={`Failures (${failures.total})`}>
-          {failures.byType.length === 0 ? (
-            <p className="py-6 text-center text-sm text-emerald-400">
-              No failures recorded 🎉
-            </p>
-          ) : (
+        <Panel title="Top Company Vectors">
+          <div className="pt-1">
             <BarList
-              data={failures.byType.map((f) => ({ label: f.type, value: f.count }))}
-              color="bg-red-500"
+              data={financial.topCompanies.map((c) => ({
+                label: c.name,
+                value: c.count,
+              }))}
             />
-          )}
+          </div>
+        </Panel>
+        <Panel title="High Frequency Knowledge Domains">
+          <div className="pt-1">
+            <BarList
+              data={financial.topTopics.map((t) => ({
+                label: t.name,
+                value: t.count,
+              }))}
+              color="bg-indigo-500/80"
+            />
+          </div>
+        </Panel>
+        <Panel title={`Pipeline Operational Anomalies (${failures.total})`}>
+          <div className="pt-1">
+            {failures.byType.length === 0 ? (
+              <div className="flex h-24 items-center justify-center text-xs text-emerald-400 font-mono">
+                No telemetry exceptions recorded. System nominal.
+              </div>
+            ) : (
+              <BarList
+                data={failures.byType.map((f) => ({
+                  label: f.type,
+                  value: f.count,
+                }))}
+                color="bg-rose-500/80"
+              />
+            )}
+          </div>
         </Panel>
       </div>
     </DarkShell>
@@ -177,19 +283,28 @@ export default function ObservabilityOverview() {
 
 function DarkShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="-mx-10 -my-8 min-h-[calc(100vh-4rem)] space-y-6 bg-slate-950 px-10 py-8 text-slate-300">
-      {children}
+    <div className="min-h-screen space-y-6 bg-slate-950 px-6 py-8 text-slate-300 md:px-10 antialiased">
+      <div className="mx-auto max-w-7xl space-y-6">{children}</div>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+    <div className="space-y-2">
+      <h2 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        {icon}
         {title}
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {children}
       </div>
     </div>

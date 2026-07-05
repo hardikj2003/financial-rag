@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  Layers,
+} from "lucide-react";
 import {
   getTraces,
   TraceListItem,
@@ -56,124 +62,195 @@ export default function TracesPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="-mx-10 -my-8 min-h-[calc(100vh-4rem)] space-y-5 bg-slate-950 px-10 py-8 text-slate-300">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">Query Traces</h1>
-          <p className="mt-1 text-xs text-slate-500">
-            {total.toLocaleString()} traces · click any row to replay the pipeline
-          </p>
+    <div className="min-h-screen bg-slate-950 px-6 py-8 text-slate-300 md:px-10 antialiased">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {/* Header Setup */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-900 pb-5">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              <Layers size={18} className="text-blue-500" /> Pipeline Execution
+              Traces
+            </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              {total.toLocaleString()} traces indexed · Select a row instance to
+              inspect context evaluation
+            </p>
+          </div>
+          <Link
+            href="/admin/observability"
+            className="self-start rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-900 hover:text-white"
+          >
+            ← System Overview
+          </Link>
         </div>
-        <Link
-          href="/admin/observability"
-          className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-blue-500/50"
-        >
-          ← Dashboard
-        </Link>
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
-          <Search size={15} className="text-slate-500" />
-          <input
-            value={search}
-            onChange={(e) => {
-              setPage(1);
-              setSearch(e.target.value);
-            }}
-            placeholder="Search queries…"
-            className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-600"
-          />
+        {/* Filter Toolbar Component */}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900/20 px-3 py-1.5 focus-within:border-slate-800 transition-colors">
+            <Search size={14} className="text-slate-600" />
+            <input
+              value={search}
+              onChange={(e) => {
+                setPage(1);
+                setSearch(e.target.value);
+              }}
+              placeholder="Filter trace vector contents..."
+              className="w-full bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterSelect
+              value={status}
+              onChange={(v) => {
+                setPage(1);
+                setStatus(v);
+              }}
+              options={[
+                ["all", "All statuses"],
+                ["ok", "Success (OK)"],
+                ["error", "Failures"],
+                ["rate_limited", "Rate Limiting"],
+              ]}
+            />
+            <FilterSelect
+              value={verification}
+              onChange={(v) => {
+                setPage(1);
+                setVerification(v);
+              }}
+              options={[
+                ["all", "All verdicts"],
+                ["SUPPORTED", "Supported"],
+                ["UNSUPPORTED", "Unsupported"],
+                ["UNKNOWN", "Evaluation Unresolved"],
+              ]}
+            />
+            <FilterSelect
+              value={queryType}
+              onChange={(v) => {
+                setPage(1);
+                setQueryType(v);
+              }}
+              options={[
+                ["all", "All structural intents"],
+                ["FACT_LOOKUP", "Fact Search"],
+                ["ANALYSIS", "Deep Analysis"],
+                ["COMPARISON", "Matrix Comparison"],
+                ["SUMMARY", "Document Abstraction"],
+              ]}
+            />
+          </div>
         </div>
-        <FilterSelect
-          value={status}
-          onChange={(v) => { setPage(1); setStatus(v); }}
-          options={[["all", "All status"], ["ok", "OK"], ["error", "Error"], ["rate_limited", "Rate limited"]]}
-        />
-        <FilterSelect
-          value={verification}
-          onChange={(v) => { setPage(1); setVerification(v); }}
-          options={[["all", "All verdicts"], ["SUPPORTED", "Supported"], ["UNSUPPORTED", "Unsupported"], ["UNKNOWN", "Unknown"]]}
-        />
-        <FilterSelect
-          value={queryType}
-          onChange={(v) => { setPage(1); setQueryType(v); }}
-          options={[["all", "All types"], ["FACT_LOOKUP", "Fact"], ["ANALYSIS", "Analysis"], ["COMPARISON", "Comparison"], ["SUMMARY", "Summary"]]}
-        />
-      </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-800">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Query</th>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Latency</th>
-              <th className="px-4 py-3 font-semibold">Sources</th>
-              <th className="px-4 py-3 font-semibold">Coverage</th>
-              <th className="px-4 py-3 font-semibold">Verdict</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Time</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {loading ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>
-            ) : items.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">No traces match these filters.</td></tr>
-            ) : (
-              items.map((t) => (
-                <tr key={t.id} className="group cursor-pointer hover:bg-slate-900/60">
-                  <td className="max-w-xs px-4 py-3">
-                    <Link href={`/admin/observability/traces/${t.id}`} className="block">
-                      <span className="line-clamp-1 font-medium text-slate-200 group-hover:text-white">
-                        {t.originalQuery}
-                      </span>
-                      {t.companies.length > 0 && (
-                        <span className="text-[11px] text-slate-500">
-                          {t.companies.join(" · ")}
-                        </span>
-                      )}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-400">{t.queryType ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{fmtMs(t.totalMs)}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">
-                    {t.citedSourceCount ?? 0}/{t.finalSourceCount ?? 0}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{fmtPct(t.citationCoverage)}</td>
-                  <td className="px-4 py-3"><VerdictBadge verdict={t.verification} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {new Date(t.createdAt).toLocaleString()}
-                  </td>
+        {/* Structured Data Table */}
+        <div className="overflow-hidden rounded-xl border border-slate-900 bg-slate-950">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-900/30 border-b border-slate-900 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 w-1/3">Query Execution Sequence</th>
+                  <th className="px-4 py-3">Vector Intent</th>
+                  <th className="px-4 py-3">Latency</th>
+                  <th className="px-4 py-3">Sources Fetch</th>
+                  <th className="px-4 py-3">Citation Rate</th>
+                  <th className="px-4 py-3">Safety Verdict</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Timestamp</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-900/60">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-4 py-12 text-center text-slate-600 animate-pulse font-mono"
+                    >
+                      Synchronizing live traces…
+                    </td>
+                  </tr>
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-4 py-12 text-center text-slate-600 italic"
+                    >
+                      No historical traces identified within current filter
+                      bounds.
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((t) => (
+                    <tr
+                      key={t.id}
+                      className="group cursor-pointer hover:bg-slate-900/20 transition-colors"
+                    >
+                      <td className="px-4 py-3.5">
+                        <Link
+                          href={`/admin/observability/traces/${t.id}`}
+                          className="block space-y-1"
+                        >
+                          <span className="line-clamp-1 font-medium text-slate-200 group-hover:text-blue-400 transition-colors">
+                            {t.originalQuery}
+                          </span>
+                          {t.companies.length > 0 && (
+                            <span className="block font-mono text-[10px] text-slate-600">
+                              {t.companies.join(" · ")}
+                            </span>
+                          )}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-slate-400">
+                        {t.queryType ?? "—"}
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-slate-400">
+                        {fmtMs(t.totalMs)}
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-slate-400">
+                        {t.citedSourceCount ?? 0}{" "}
+                        <span className="text-slate-700">/</span>{" "}
+                        {t.finalSourceCount ?? 0}
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-slate-400">
+                        {fmtPct(t.citationCoverage)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <VerdictBadge verdict={t.verification} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusBadge status={t.status} />
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-slate-500 font-mono">
+                        {new Date(t.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>Page {page} of {totalPages}</span>
-        <div className="flex gap-2">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="flex items-center gap-1 rounded-lg border border-slate-800 px-3 py-1.5 disabled:opacity-40 hover:enabled:border-slate-600"
-          >
-            <ChevronLeft size={14} /> Prev
-          </button>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="flex items-center gap-1 rounded-lg border border-slate-800 px-3 py-1.5 disabled:opacity-40 hover:enabled:border-slate-600"
-          >
-            Next <ChevronRight size={14} />
-          </button>
+        {/* Minimal Control Pagination */}
+        <div className="flex items-center justify-between text-xs text-slate-500 font-mono pt-2">
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="flex items-center gap-1 rounded-md border border-slate-900 bg-slate-900/10 px-2.5 py-1.5 disabled:opacity-30 hover:enabled:bg-slate-900 text-slate-300 transition-colors"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="flex items-center gap-1 rounded-md border border-slate-900 bg-slate-900/10 px-2.5 py-1.5 disabled:opacity-30 hover:enabled:bg-slate-900 text-slate-300 transition-colors"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -193,10 +270,10 @@ function FilterSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 outline-none focus:border-blue-500/50"
+      className="rounded-lg border border-slate-900 bg-slate-900/20 px-2.5 py-1.5 text-xs text-slate-400 outline-none focus:border-slate-800 transition-all cursor-pointer"
     >
       {options.map(([v, label]) => (
-        <option key={v} value={v} className="bg-slate-900">
+        <option key={v} value={v} className="bg-slate-950 text-slate-300">
           {label}
         </option>
       ))}

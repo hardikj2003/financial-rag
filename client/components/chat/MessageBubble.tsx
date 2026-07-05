@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Bot, User, Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
 import SourceCard from "./SourceCard";
 import { Source } from "@/store/chat/chat.store";
@@ -78,6 +79,7 @@ export default function MessageBubble({ role, content, sources }: Props) {
                 {/* Assistant Markdown */}
                 <div className="prose prose-slate max-w-none text-[15px] leading-8">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                       h1: ({ ...props }) => (
                         <h1

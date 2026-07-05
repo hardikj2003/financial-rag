@@ -28,6 +28,12 @@ model Document {
   id           String            @id @default(uuid())
   fileName     String
   chunksStored Int
+  // Auto-detected company identity (replaces the old hardcoded allowlist).
+  // companyKey is the canonical filter value stored on every Qdrant chunk;
+  // companyAliases are the lowercased forms matched against user queries.
+  companyName    String?
+  companyKey     String?
+  companyAliases String[]
   createdAt    DateTime          @default(now())
   tables       FinancialTable[]
   metrics      FinancialMetric[]

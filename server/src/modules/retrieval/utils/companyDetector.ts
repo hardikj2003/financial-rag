@@ -15,6 +15,8 @@ const COMPANY_ALIASES: Record<string, string[]> = {
   ltimindtree: ["ltimindtree", "lti mindtree"],
   sbi: ["state bank of india", "sbi", "sbin"],
   heromotocorp: ["hero motocorp", "heromotocorp"],
+  techmahindra: ["tech mahindra", "techmahindra"],
+  adija: ["adija technologies", "adijatechnologies"],
 };
 
 const escapeRegExp = (value: string) =>

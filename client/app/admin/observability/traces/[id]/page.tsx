@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { ArrowLeft, Clock, Layers, Cpu, Database, Eye } from "lucide-react";
 import {
   getTraceDetail,
   TraceDetail,
@@ -41,10 +42,23 @@ export default function TraceDetailPage() {
     load();
   }, [getToken, id]);
 
-  if (loading) return <Shell><p className="text-slate-500">Loading trace…</p></Shell>;
-  if (!trace) return <Shell><p className="text-red-400">Trace not found.</p></Shell>;
+  if (loading)
+    return (
+      <Shell>
+        <div className="flex h-40 items-center justify-center text-xs text-slate-500 animate-pulse">
+          Loading trace execution…
+        </div>
+      </Shell>
+    );
+  if (!trace)
+    return (
+      <Shell>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-400">
+          Trace parameters could not be resolved or found.
+        </div>
+      </Shell>
+    );
 
-  // Timeline derived from recorded stage durations.
   const stages = [
     { name: "Retrieval", ms: trace.retrievalMs },
     { name: "Generation", ms: trace.generationMs },
@@ -53,276 +67,380 @@ export default function TraceDetailPage() {
 
   return (
     <Shell>
-      <Link
-        href="/admin/observability/traces"
-        className="text-xs text-slate-500 hover:text-slate-300"
-      >
-        ← Back to traces
-      </Link>
-
-      {/* Header */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-lg font-semibold text-white">{trace.originalQuery}</p>
-            <p className="mt-1 text-xs text-slate-500">
-              {new Date(trace.createdAt).toLocaleString()} ·{" "}
-              {trace.queryType ?? "—"} · {trace.model ?? "—"}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <StatusBadge status={trace.status} />
-            <VerdictBadge verdict={trace.verification} />
-          </div>
-        </div>
-        {trace.errorMessage && (
-          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
-            {trace.errorMessage}
-          </p>
-        )}
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          <StatCard label="End-to-End" value={fmtMs(trace.totalMs)} accent="blue" />
-          <StatCard label="Retrieval" value={fmtMs(trace.retrievalMs)} />
-          <StatCard label="Generation" value={fmtMs(trace.generationMs)} />
-          <StatCard label="Sources" value={`${trace.citedSourceCount ?? 0}/${trace.finalSourceCount ?? 0}`} hint="cited/used" />
-          <StatCard label="Tokens" value={fmtNum((trace.estInputTokens ?? 0) + (trace.estOutputTokens ?? 0))} hint="est." />
-          <StatCard label="Cost" value={fmtCost(trace.estCostUsd)} accent="amber" />
+      <div className="flex items-center justify-between border-b border-slate-900 pb-5">
+        <Link
+          href="/admin/observability/traces"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-white"
+        >
+          <ArrowLeft size={14} /> Back to execution history
+        </Link>
+        <div className="flex items-center gap-2">
+          <StatusBadge status={trace.status} />
+          <VerdictBadge verdict={trace.verification} />
         </div>
       </div>
 
-      {/* Timeline */}
-      <Panel title="Stage Timeline">
-        <div className="space-y-2">
+      {/* Header Info */}
+      <div className="space-y-4">
+        <div>
+          <h1 className="font-mono text-lg font-semibold tracking-tight text-white">
+            {trace.originalQuery}
+          </h1>
+          <p className="mt-1.5 text-xs text-slate-500">
+            {new Date(trace.createdAt).toLocaleString()}{" "}
+            <span className="mx-2 text-slate-800">|</span>{" "}
+            {trace.queryType ?? "STANDARD"}{" "}
+            <span className="mx-2 text-slate-800">|</span>{" "}
+            <span className="font-mono">{trace.model ?? "—"}</span>
+          </p>
+        </div>
+
+        {trace.errorMessage && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 font-mono text-xs text-red-400">
+            <span className="font-semibold">Pipeline Execution Error:</span>{" "}
+            {trace.errorMessage}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <StatCard
+            label="End-to-End"
+            value={fmtMs(trace.totalMs)}
+            accent="blue"
+          />
+          <StatCard label="Retrieval" value={fmtMs(trace.retrievalMs)} />
+          <StatCard label="Generation" value={fmtMs(trace.generationMs)} />
+          <StatCard
+            label="Sources (Cited/Total)"
+            value={`${trace.citedSourceCount ?? 0} / ${trace.finalSourceCount ?? 0}`}
+          />
+          <StatCard
+            label="Tokens"
+            value={fmtNum(
+              (trace.estInputTokens ?? 0) + (trace.estOutputTokens ?? 0),
+            )}
+            hint="est."
+          />
+          <StatCard
+            label="Cost"
+            value={fmtCost(trace.estCostUsd)}
+            accent="amber"
+          />
+        </div>
+      </div>
+
+      {/* Timeline Visualizer */}
+      <Panel title="Execution Breakdown">
+        <div className="space-y-3 py-1">
           {stages.map((s) => (
-            <div key={s.name} className="flex items-center gap-3">
-              <span className="w-24 shrink-0 text-xs text-slate-400">{s.name}</span>
-              <div className="h-5 flex-1 overflow-hidden rounded bg-slate-800">
+            <div key={s.name} className="flex items-center gap-4">
+              <span className="w-20 text-xs font-medium text-slate-400">
+                {s.name}
+              </span>
+              <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-slate-900/60 border border-slate-900">
                 <div
-                  className="flex h-full items-center justify-end rounded bg-blue-500/70 px-2"
+                  className="flex h-full items-center justify-end bg-linear-to-r from-blue-600/40 to-blue-500/50 px-2 transition-all"
                   style={{ width: `${(s.ms / maxStage) * 100}%` }}
                 >
-                  <span className="font-mono text-[10px] text-white">{fmtMs(s.ms)}</span>
+                  <span className="font-mono text-[10px] font-medium text-slate-200">
+                    {fmtMs(s.ms)}
+                  </span>
                 </div>
               </div>
             </div>
           ))}
           {trace.verificationMs != null && (
-            <p className="text-[11px] text-slate-500">
-              + verification {fmtMs(trace.verificationMs)} (async, off request path)
-            </p>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <Clock size={12} />
+              <span>
+                Async verification completed off-path in{" "}
+                {fmtMs(trace.verificationMs)}
+              </span>
+            </div>
           )}
         </div>
       </Panel>
 
-      {/* Query transformation */}
-      <Collapsible title="Query Transformation" defaultOpen subtitle={trace.isComparison ? "comparison" : trace.queryType ?? ""}>
-        <div className="space-y-3 text-sm">
-          <Field label="Original" value={trace.originalQuery} />
-          <Field label="Rewritten (standalone)" value={trace.rewrittenQuery ?? "— (no rewrite)"} />
-          {trace.generatedQueries.length > 0 && (
-            <div>
-              <p className="mb-1 text-xs font-semibold text-slate-500">Generated search queries</p>
-              <ul className="space-y-1">
-                {trace.generatedQueries.map((q, i) => (
-                  <li key={i} className="rounded bg-slate-800/60 px-3 py-1.5 text-xs text-slate-300">{q}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {trace.companies.length > 0 && (
-            <Field label="Companies detected" value={trace.companies.join(", ")} />
-          )}
-        </div>
-      </Collapsible>
-
-      {/* Retrieval debugger */}
-      <Collapsible title="Retrieval Debugger" subtitle={`${trace.retrievals.length} rounds`}>
-        <div className="space-y-4">
-          {trace.retrievals.length === 0 ? (
-            <p className="text-sm text-slate-500">No retriever data captured.</p>
-          ) : (
-            trace.retrievals.map((r) => (
-              <div key={r.id}>
-                <p className="mb-2 text-xs font-semibold text-slate-400">
-                  <span className="rounded bg-slate-800 px-2 py-0.5 uppercase tracking-wide text-blue-300">
-                    {r.retriever}
-                  </span>{" "}
-                  {r.company && <span className="text-slate-500">· {r.company}</span>}{" "}
-                  <span className="text-slate-600">· {r.resultCount} results · “{r.searchQuery}”</span>
-                </p>
-                <ResultsTable results={r.results} />
-              </div>
-            ))
-          )}
-        </div>
-      </Collapsible>
-
-      {/* Fusion debugger */}
-      {trace.fusion && (
-        <Collapsible title="RRF Fusion" subtitle={`${trace.fusion.beforeCount} → ${trace.fusion.afterCount}`}>
-          <p className="mb-3 text-xs text-slate-500">
-            Survivors after Reciprocal Rank Fusion + metadata boost (fused score is canonical).
-          </p>
-          <ResultsTable results={trace.fusion.items} showScore />
-        </Collapsible>
-      )}
-
-      {/* Reranker debugger */}
-      {trace.rerank && (
-        <Collapsible title="Reranker" subtitle={`${trace.rerank.beforeCount} → ${trace.rerank.afterCount}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="text-slate-500">
-                <tr>
-                  <th className="py-2 pr-3">#</th>
-                  <th className="py-2 pr-3">Document</th>
-                  <th className="py-2 pr-3">Before</th>
-                  <th className="py-2 pr-3">After</th>
-                  <th className="py-2">Movement</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {trace.rerank.items.map((it) => {
-                  const delta = it.afterScore - it.beforeScore;
-                  return (
-                    <tr key={it.id}>
-                      <td className="py-2 pr-3 font-mono text-slate-500">{it.rank}</td>
-                      <td className="py-2 pr-3 text-slate-300">{it.documentName}</td>
-                      <td className="py-2 pr-3 font-mono text-slate-500">{it.beforeScore.toFixed(2)}</td>
-                      <td className="py-2 pr-3 font-mono text-slate-300">{it.afterScore.toFixed(2)}</td>
-                      <td className="py-2 font-mono">
-                        <span className={delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-slate-500"}>
-                          {delta > 0 ? "▲" : delta < 0 ? "▼" : "—"} {Math.abs(delta).toFixed(2)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Context selection (compression was removed; this shows selection ratio) */}
-      <Collapsible
-        title="Context Selection"
-        subtitle={`${trace.candidateCount ?? 0} → ${trace.finalSourceCount ?? 0}`}
-      >
-        <p className="text-sm text-slate-400">
-          {trace.candidateCount ?? 0} candidates were narrowed to{" "}
-          {trace.finalSourceCount ?? 0} final sources (
-          {trace.candidateCount
-            ? `${Math.round((1 - (trace.finalSourceCount ?? 0) / trace.candidateCount) * 100)}% reduction`
-            : "—"}
-          ). Sentence-level context compression was intentionally removed from
-          the pipeline — it severed figures from their labels. Context is{" "}
-          {fmtNum(trace.contextChars)} chars.
-        </p>
-      </Collapsible>
-
-      {/* Prompt inspector */}
-      {trace.prompt && (
-        <Collapsible title="Prompt Inspector" subtitle={`${fmtNum(trace.prompt.estTokens)} tokens`}>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Characters" value={fmtNum(trace.prompt.chars)} />
-            <StatCard label="Est. Tokens" value={fmtNum(trace.prompt.estTokens)} />
-            <StatCard label="Context Chars" value={fmtNum(trace.contextChars)} />
-          </div>
-          <PromptBlock label="System Prompt" text={trace.prompt.systemPrompt} />
-          <PromptBlock label="Retrieved Context" text={trace.prompt.context} />
-          <PromptBlock label="Final Prompt" text={trace.prompt.finalPrompt} />
-        </Collapsible>
-      )}
-
-      {/* LLM monitoring */}
-      {trace.llm && (
-        <Collapsible title="LLM Generation" subtitle={trace.llm.model}>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <StatCard label="Input Tokens" value={fmtNum(trace.llm.inputTokens)} />
-            <StatCard label="Output Tokens" value={fmtNum(trace.llm.outputTokens)} />
-            <StatCard label="Total Tokens" value={fmtNum(trace.llm.totalTokens)} />
-            <StatCard label="Latency" value={fmtMs(trace.llm.latencyMs)} />
-            <StatCard label="Stream" value={fmtMs(trace.llm.streamMs)} />
-            <StatCard label="Cost" value={fmtCost(trace.llm.costUsd)} accent="amber" />
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Source attribution */}
-      {trace.verificationTrace && (
+      {/* Query Pipeline Steps */}
+      <div className="space-y-3">
         <Collapsible
-          title="Source Attribution"
-          subtitle={`${trace.verificationTrace.citedSources}/${trace.verificationTrace.totalSources} cited`}
+          title="Query Transformation"
+          defaultOpen
+          subtitle={
+            trace.isComparison
+              ? "Comparison Pipeline"
+              : (trace.queryType ?? "Standard Lookup")
+          }
         >
-          <div className="space-y-2">
-            {trace.verificationTrace.evidence.map((e) => (
-              <div
-                key={e.sourceId}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2.5"
-              >
-                <span className="text-sm text-slate-300">
-                  <span className="font-mono text-slate-500">[Source {e.sourceId}]</span>{" "}
-                  {e.documentName}
-                </span>
-                <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                    e.cited
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                      : "border-slate-700 bg-slate-800 text-slate-500"
-                  }`}
-                >
-                  {e.cited ? "CITED" : "unused"}
-                </span>
+          <div className="space-y-4 rounded-xl border border-slate-900 bg-slate-900/20 p-4 text-xs">
+            <Field label="User Input Vector" value={trace.originalQuery} mono />
+            <Field
+              label="Rewritten Standalone Query"
+              value={trace.rewrittenQuery ?? "— (Passed unmodified)"}
+              mono
+            />
+
+            {trace.generatedQueries.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-slate-500">
+                  Fan-out Multiplexed Search Vectors
+                </p>
+                <div className="space-y-1">
+                  {trace.generatedQueries.map((q, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg bg-slate-900/40 border border-slate-900 px-3 py-2 font-mono text-slate-300"
+                    >
+                      {q}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+            {trace.companies.length > 0 && (
+              <Field
+                label="Extracted Entity Context"
+                value={trace.companies.join(", ")}
+              />
+            )}
           </div>
         </Collapsible>
-      )}
 
-      {/* Verification */}
-      <Collapsible title="Verification" subtitle={trace.verification ?? "—"}>
-        <div className="flex items-center gap-4">
-          <VerdictBadge verdict={trace.verification} />
-          <span className="text-sm text-slate-400">
-            Citation coverage: {fmtPct(trace.citationCoverage)}
-          </span>
-        </div>
-      </Collapsible>
+        <Collapsible
+          title="Multi-Index Retrieval"
+          subtitle={`${trace.retrievals.length} operational rounds`}
+        >
+          <div className="space-y-4">
+            {trace.retrievals.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">
+                No storage/index fetches recorded for this execution.
+              </p>
+            ) : (
+              trace.retrievals.map((r) => (
+                <div key={r.id} className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-900 pb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-blue-950 px-1.5 py-0.5 font-mono text-[10px] font-medium text-blue-400 border border-blue-900/40 uppercase">
+                        {r.retriever}
+                      </span>
+                      {r.company && <span className="text-slate-600">·</span>}
+                      <span className="text-slate-300">{r.company}</span>
+                    </div>
+                    <span className="font-mono text-slate-500">
+                      {r.resultCount} hits for "{r.searchQuery}"
+                    </span>
+                  </div>
+                  <ResultsTable results={r.results} />
+                </div>
+              ))
+            )}
+          </div>
+        </Collapsible>
 
-      {/* Memory inspector */}
-      <Collapsible title="Conversation Memory" subtitle={trace.memoryCompany ?? "no company"}>
-        <div className="space-y-3 text-sm">
-          <Field label="Current company" value={trace.memoryCompany ?? "—"} />
-          <Field label="Recent topics" value={trace.memoryTopics.join(", ") || "—"} />
-        </div>
-      </Collapsible>
+        {trace.fusion && (
+          <Collapsible
+            title="Reciprocal Rank Fusion (RRF)"
+            subtitle={`Merged ${trace.fusion.beforeCount} down to ${trace.fusion.afterCount}`}
+          >
+            <p className="mb-2 text-xs text-slate-500">
+              Cross-index canonical reranking using reciprocal weight scoring
+              bounds.
+            </p>
+            <ResultsTable results={trace.fusion.items} showScore />
+          </Collapsible>
+        )}
+
+        {trace.rerank && (
+          <Collapsible
+            title="Cross-Encoder Reranker"
+            subtitle={`Rescored ${trace.rerank.beforeCount} → ${trace.rerank.afterCount}`}
+          >
+            <div className="overflow-x-auto rounded-xl border border-slate-900">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900/40 text-slate-500 border-b border-slate-900">
+                  <tr>
+                    <th className="p-3 font-medium">Rank</th>
+                    <th className="p-3 font-medium">Document ID</th>
+                    <th className="p-3 font-medium">Base Score</th>
+                    <th className="p-3 font-medium">Model Rescore</th>
+                    <th className="p-3 font-medium text-right">Delta</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900">
+                  {trace.rerank.items.map((it) => {
+                    const delta = it.afterScore - it.beforeScore;
+                    return (
+                      <tr key={it.id} className="hover:bg-slate-900/20">
+                        <td className="p-3 font-mono text-slate-500">
+                          {it.rank}
+                        </td>
+                        <td className="p-3 font-medium text-slate-300">
+                          {it.documentName}
+                        </td>
+                        <td className="p-3 font-mono text-slate-500">
+                          {it.beforeScore.toFixed(3)}
+                        </td>
+                        <td className="p-3 font-mono text-slate-200">
+                          {it.afterScore.toFixed(3)}
+                        </td>
+                        <td className="p-3 font-mono text-right">
+                          <span
+                            className={
+                              delta > 0
+                                ? "text-emerald-400"
+                                : delta < 0
+                                  ? "text-red-400"
+                                  : "text-slate-500"
+                            }
+                          >
+                            {delta > 0 ? "▲" : delta < 0 ? "▼" : "—"}{" "}
+                            {Math.abs(delta).toFixed(3)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Collapsible>
+        )}
+
+        <Collapsible
+          title="Context Engineering & Prompt Assembly"
+          subtitle={`${fmtNum(trace.contextChars)} characters populated`}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Candidate pools filtered to {trace.finalSourceCount ?? 0} targeted
+              nodes. Token footprint reduction calculated at{" "}
+              <span className="font-semibold text-slate-200">
+                {trace.candidateCount
+                  ? `${Math.round((1 - (trace.finalSourceCount ?? 0) / trace.candidateCount) * 100)}%`
+                  : "0%"}
+              </span>
+              .
+            </p>
+            {trace.prompt && (
+              <div className="space-y-4">
+                <PromptBlock
+                  label="System Payload Constraints"
+                  text={trace.prompt.systemPrompt}
+                />
+                <PromptBlock
+                  label="Injected Context Array"
+                  text={trace.prompt.context}
+                />
+                <PromptBlock
+                  label="Assembled Wire Prompt"
+                  text={trace.prompt.finalPrompt}
+                />
+              </div>
+            )}
+          </div>
+        </Collapsible>
+
+        {trace.llm && (
+          <Collapsible
+            title="LLM Inference Execution"
+            subtitle={trace.llm.model}
+          >
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <StatCard
+                label="Input Tokens"
+                value={fmtNum(trace.llm.inputTokens)}
+              />
+              <StatCard
+                label="Output Tokens"
+                value={fmtNum(trace.llm.outputTokens)}
+              />
+              <StatCard
+                label="Total Footprint"
+                value={fmtNum(trace.llm.totalTokens)}
+              />
+              <StatCard
+                label="Inference Wall-Time"
+                value={fmtMs(trace.llm.latencyMs)}
+              />
+              <StatCard
+                label="Time-to-First-Token"
+                value={fmtMs(trace.llm.streamMs)}
+              />
+              <StatCard
+                label="Computed Cost"
+                value={fmtCost(trace.llm.costUsd)}
+                accent="amber"
+              />
+            </div>
+          </Collapsible>
+        )}
+
+        {trace.verificationTrace && (
+          <Collapsible
+            title="Deterministic Verification Claims"
+            subtitle={`${trace.verificationTrace.citedSources} of ${trace.verificationTrace.totalSources} utilized`}
+          >
+            <div className="divide-y divide-slate-900 rounded-xl border border-slate-900">
+              {trace.verificationTrace.evidence.map((e) => (
+                <div
+                  key={e.sourceId}
+                  className="flex items-center justify-between p-3 text-xs bg-slate-900/10 hover:bg-slate-900/30 transition-colors"
+                >
+                  <span className="text-slate-300 font-medium">
+                    <span className="font-mono text-slate-600 mr-2">
+                      [{String(e.sourceId).padStart(2, "0")}]
+                    </span>{" "}
+                    {e.documentName}
+                  </span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider ${e.cited ? "bg-emerald-950 text-emerald-400 border border-emerald-900/50" : "bg-slate-900 text-slate-600"}`}
+                  >
+                    {e.cited ? "CITED" : "UNUSED"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Collapsible>
+        )}
+      </div>
     </Shell>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="-mx-10 -my-8 min-h-[calc(100vh-4rem)] space-y-4 bg-slate-950 px-10 py-8 text-slate-300">
-      {children}
+    <div className="min-h-screen space-y-6 bg-slate-950 px-6 py-8 text-slate-300 md:px-10 antialiased">
+      <div className="mx-auto max-w-7xl space-y-6">{children}</div>
     </div>
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div>
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm text-slate-300">{value}</p>
+    <div className="space-y-1">
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      <p
+        className={`text-xs text-slate-200 leading-relaxed ${mono ? "font-mono bg-slate-900/30 p-2 rounded border border-slate-900/60" : ""}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
 
 function PromptBlock({ label, text }: { label: string; text: string }) {
   return (
-    <div className="mt-3">
-      <p className="mb-1 text-xs font-semibold text-slate-500">{label}</p>
-      <pre className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-5 text-slate-400 whitespace-pre-wrap">
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      <pre className="max-h-56 overflow-auto rounded-xl border border-slate-900 bg-slate-950 p-3 font-mono text-[11px] leading-5 text-slate-400 whitespace-pre-wrap custom-scrollbar">
         {text}
       </pre>
     </div>
@@ -336,29 +454,38 @@ function ResultsTable({
   results: RetrievalResult[];
   showScore?: boolean;
 }) {
-  if (!results || results.length === 0) {
-    return <p className="text-xs text-slate-600">No results.</p>;
-  }
+  if (!results || results.length === 0)
+    return (
+      <p className="text-xs text-slate-600 italic p-1">
+        No contextual rows found.
+      </p>
+    );
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800">
+    <div className="overflow-x-auto rounded-xl border border-slate-900">
       <table className="w-full text-left text-xs">
-        <thead className="bg-slate-900/60 text-slate-500">
+        <thead className="bg-slate-900/40 text-slate-500 border-b border-slate-900">
           <tr>
-            <th className="px-3 py-2">Document</th>
-            <th className="px-3 py-2">Company</th>
-            <th className="px-3 py-2">Section</th>
-            <th className="px-3 py-2">Score</th>
+            <th className="p-2.5 font-medium">Source Document</th>
+            <th className="p-2.5 font-medium">Entity Context</th>
+            <th className="p-2.5 font-medium">Node Target</th>
+            <th className="p-2.5 font-medium w-32">Weight / Score</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-slate-900">
           {results.map((r, i) => (
-            <tr key={`${r.id}-${i}`}>
-              <td className="px-3 py-2 text-slate-300">{r.documentName}</td>
-              <td className="px-3 py-2 text-slate-500">{r.companyName ?? "—"}</td>
-              <td className="px-3 py-2 text-slate-500">{r.sectionTitle ?? "—"}</td>
-              <td className="px-3 py-2">
-                {showScore ? <ScoreBar score={r.score} max={1} /> : (
-                  <span className="font-mono text-slate-400">{r.score?.toFixed?.(3) ?? r.score}</span>
+            <tr key={`${r.id}-${i}`} className="hover:bg-slate-900/10">
+              <td className="p-2.5 text-slate-300 font-medium">
+                {r.documentName}
+              </td>
+              <td className="p-2.5 text-slate-400">{r.companyName ?? "—"}</td>
+              <td className="p-2.5 text-slate-500">{r.sectionTitle ?? "—"}</td>
+              <td className="p-2.5">
+                {showScore ? (
+                  <ScoreBar score={r.score} max={1} />
+                ) : (
+                  <span className="font-mono text-slate-400 font-medium">
+                    {r.score?.toFixed?.(3) ?? r.score}
+                  </span>
                 )}
               </td>
             </tr>

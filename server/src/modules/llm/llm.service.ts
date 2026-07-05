@@ -44,11 +44,14 @@ const toMessages = (prompt: string | ChatPrompt) => {
   ];
 };
 
-/** True when the SDK threw a 429 (rate limit / quota exhausted). */
-export const isRateLimitError = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  (error as { status?: number }).status === 429;
+/**
+ * True for Groq "request too large" / rate-limit responses (429 quota or 413
+ * over-budget). Both mean the request can't be served right now.
+ */
+export const isRateLimitError = (error: unknown): boolean => {
+  const status = (error as { status?: number })?.status;
+  return status === 429 || status === 413;
+};
 
 export const generateLLMResponse = async (
   prompt: string | ChatPrompt,
@@ -59,6 +62,7 @@ export const generateLLMResponse = async (
       model: options?.fast ? FAST_MODEL : MODEL,
       messages: toMessages(prompt),
       temperature: 0.3,
+      max_tokens: options?.fast ? FAST_MAX_TOKENS : ANSWER_MAX_TOKENS,
     },
     { timeout: REQUEST_TIMEOUT_MS },
   );
@@ -72,6 +76,7 @@ export const streamLLMResponse = async (prompt: string | ChatPrompt) => {
       model: MODEL,
       messages: toMessages(prompt),
       temperature: 0.3,
+      max_tokens: ANSWER_MAX_TOKENS,
       stream: true,
     },
     { timeout: REQUEST_TIMEOUT_MS },
